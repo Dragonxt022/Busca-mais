@@ -1,0 +1,236 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-globe me-2"></i>Fontes</h1>
+  <div class="btn-toolbar mb-2 mb-md-0">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSourceModal">
+      <i class="bi bi-plus-lg me-1"></i> Nova Fonte
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>URL</th>
+            <th>Categoria</th>
+            <th>Páginas</th>
+            <th>Agenda</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (data && data.length > 0) { %>
+            <% data.forEach(source => { %>
+              <tr>
+                <td><strong><%= source.name %></strong></td>
+                <td><small><a href="<%= source.base_url %>" target="_blank"><%= source.base_url.substring(0, 50) %>...</a></small></td>
+                <td><span class="badge bg-info"><%= source.category || 'geral' %></span></td>
+                <td><%= source.pageCount || 0 %></td>
+                <td>
+                  <% if (source.schedule) { %>
+                    <button class="btn btn-sm btn-outline-warning" onclick="openScheduleModal('<%= source.id %>', '<%= source.schedule %>')" title="Editar agenda">
+                      <i class="bi bi-clock"></i> <%= source.schedule %>
+                    </button>
+                  <% } else { %>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="openScheduleModal('<%= source.id %>', '')" title="Definir agenda">
+                      <i class="bi bi-clock"></i>
+                    </button>
+                  <% } %>
+                </td>
+                <td>
+                  <span class="badge <%= source.is_active ? 'bg-success' : 'bg-secondary' %>">
+                    <%= source.is_active ? 'Ativa' : 'Inativa' %>
+                  </span>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="startCrawl('<%= source.id %>')" title="Iniciar coleta">
+                      <i class="bi bi-play"></i>
+                    </button>
+                    <a href="/admin/sources/<%= source.id %>" class="btn btn-outline-secondary" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn btn-outline-danger" onclick="deleteSource('<%= source.id %>')" title="Excluir">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma fonte cadastrada</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addSourceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nova Fonte</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addSourceForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome</label>
+            <input type="text" class="form-control" name="name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">URL Base</label>
+            <input type="url" class="form-control" name="url" placeholder="https://exemplo.com" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <select class="form-select" name="category">
+              <option value="general">Geral</option>
+              <option value="news">Notícias</option>
+              <option value="blog">Blog</option>
+              <option value="government">Governo</option>
+              <option value="documentation">Documentação</option>
+              <option value="other">Outro</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Profundidade de Coleta</label>
+            <input type="number" class="form-control" name="crawlDepth" value="3" min="1" max="5">
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" name="followInternalLinks" id="followLinks" checked>
+              <label class="form-check-label" for="followLinks">Seguir links internos</label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" name="downloadImages" id="downloadImages" checked>
+              <label class="form-check-label" for="downloadImages">Baixar imagens da página</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agendar Coleta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="scheduleForm">
+        <div class="modal-body">
+          <input type="hidden" name="sourceId" id="scheduleSourceId">
+          <div class="mb-3">
+            <label class="form-label">Expressão Cron</label>
+            <input type="text" class="form-control" name="schedule" id="scheduleCron" placeholder="0 */6 * * *" required>
+            <small class="text-muted">Formato: minuto hora dia mês dia_semana</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Predefinições</label>
+            <div class="btn-group w-100">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */6 * * *')">6h</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */12 * * *')">12h</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * *')">Diário</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * 0')">Semanal</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto" onclick="removeSchedule()">Remover Agenda</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('addSourceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    data.followInternalLinks = form.querySelector('[name=followInternalLinks]').checked;
+    data.downloadImages = form.querySelector('[name=downloadImages]').checked;
+    
+    try {
+      const response = await axios.post('/api/sources', data);
+      bootstrap.Modal.getInstance(document.getElementById('addSourceModal')).hide();
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  });
+
+  async function startCrawl(sourceId) {
+    try {
+      await axios.post('/api/sources/' + sourceId + '/crawl');
+      alert('Coleta iniciada!');
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+
+  async function deleteSource(sourceId) {
+    if (confirm('Tem certeza que deseja excluir esta fonte?')) {
+      try {
+        await axios.delete('/api/sources/' + sourceId);
+        location.reload();
+      } catch (error) {
+        alert('Erro: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  }
+
+  function openScheduleModal(sourceId, currentSchedule) {
+    document.getElementById('scheduleSourceId').value = sourceId;
+    document.getElementById('scheduleCron').value = currentSchedule;
+    new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+  }
+
+  function setCron(cron) {
+    document.getElementById('scheduleCron').value = cron;
+  }
+
+  document.getElementById('scheduleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sourceId = document.getElementById('scheduleSourceId').value;
+    const schedule = document.getElementById('scheduleCron').value;
+    
+    try {
+      await axios.post('/api/scheduler/sources/' + sourceId + '/schedule', { schedule });
+      bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  });
+
+  async function removeSchedule() {
+    const sourceId = document.getElementById('scheduleSourceId').value;
+    if (confirm('Remover agendamento desta fonte?')) {
+      try {
+        await axios.delete('/api/scheduler/sources/' + sourceId + '/schedule');
+        bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+        location.reload();
+      } catch (error) {
+        alert('Erro: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  }
+</script>

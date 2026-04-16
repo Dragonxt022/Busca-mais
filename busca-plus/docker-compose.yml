@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: busca-plus-postgres
+    environment:
+      POSTGRES_USER: buscaplus
+      POSTGRES_PASSWORD: buscaplus123
+      POSTGRES_DB: buscaplus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buscaplus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for BullMQ queues
+  redis:
+    image: redis:7-alpine
+    container_name: busca-plus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Typesense Search Engine
+  typesense:
+    image: typesense/typesense:0.24.1
+    container_name: busca-plus-typesense
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-buscaplus_api_key}
+      TYPESENSE_ENABLE_CORS: "true"
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense_data:/data
+    networks:
+      - busca-plus-network
+
+  # Crawler Service
+  crawler:
+    build:
+      context: ../busca-plus-crawler
+      dockerfile: Dockerfile
+    container_name: busca-plus-crawler
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://buscaplus:buscaplus123@postgres:5432/buscaplus
+      REDIS_URL: redis://redis:6379
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-buscaplus_api_key}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+    networks:
+      - busca-plus-network
+    volumes:
+      - ./images:/app/images
+
+  # Search UI Service
+  search-ui:
+    image: node:18-alpine
+    container_name: busca-plus-search
+    working_dir: /app
+    command: sh -c "npm install --include=dev && npx nodemon src/index.js"
+    environment:
+      NODE_ENV: development
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-buscaplus_api_key}
+      CRAWLER_API_URL: http://crawler:3001
+      CRAWLER_EXTERNAL_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../busca-plus-search:/app
+      - /app/node_modules
+      - ../busca-plus/images:/app/images:ro
+    depends_on:
+      typesense:
+        condition: service_started
+      crawler:
+        condition: service_started
+    networks:
+      - busca-plus-network
+
+  # Worker for crawling jobs (runs separately)
+  worker:
+    build:
+      context: ../busca-plus-crawler
+      dockerfile: Dockerfile
+    container_name: busca-plus-worker
+    command: ["node", "src/workers/index.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://buscaplus:buscaplus123@postgres:5432/buscaplus
+      REDIS_URL: redis://redis:6379
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-buscaplus_api_key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+    networks:
+      - busca-plus-network
+    volumes:
+      - ./images:/app/images
+
+networks:
+  busca-plus-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  typesense_data:

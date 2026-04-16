@@ -1,0 +1,78 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Páginas com Erros</h1>
+</div>
+
+<div class="alert alert-warning">
+  <i class="bi bi-info-circle me-2"></i>
+  Estas páginas tiveram erros durante a coleta e podem precisar de reprocessamento.
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>URL</th>
+            <th>Fonte</th>
+            <th>Erro</th>
+            <th>Última Tentativa</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (data?.data?.length > 0) { %>
+            <% data.data.forEach(page => { %>
+              <tr>
+                <td><small><%= page.title ? page.title.substring(0, 50) : 'Sem título' %></small></td>
+                <td><small><a href="<%= page.url %>" target="_blank"><%= page.url.substring(0, 40) %>...</a></small></td>
+                <td><span class="badge bg-light text-dark"><%= page.source?.name || '-' %></span></td>
+                <td><small class="text-danger"><%= page.error_message ? page.error_message.substring(0, 60) : 'Erro desconhecido' %></small></td>
+                <td><small><%= page.updated_at ? new Date(page.updated_at).toLocaleString('pt-BR') : '-' %></small></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="reprocessPage('<%= page.id %>')" title="Reprocessar">
+                      <i class="bi bi-arrow-repeat"></i> Reprocessar
+                    </button>
+                    <a href="<%= page.url %>" target="_blank" class="btn btn-outline-secondary" title="Ver original">
+                      <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr><td colspan="6" class="text-center text-muted py-4">Nenhuma página com erros</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% if (data?.pages > 1) { %>
+    <div class="card-footer">
+      <nav>
+        <ul class="pagination justify-content-center mb-0">
+          <% for (let i = 1; i <= data.pages; i++) { %>
+            <li class="page-item <%= data.page === i ? 'active' : '' %>">
+              <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+            </li>
+          <% } %>
+        </ul>
+      </nav>
+    </div>
+  <% } %>
+</div>
+
+<script>
+  async function reprocessPage(pageId) {
+    if (confirm('Deseja reprocessar esta página?')) {
+      try {
+        await axios.post('/api/pages/' + pageId + '/crawl');
+        alert('Página adicionada à fila de coleta!');
+      } catch (error) {
+        alert('Erro: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  }
+</script>

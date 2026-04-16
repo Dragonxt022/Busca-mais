@@ -1,0 +1,107 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-file-earmark me-2"></i>Páginas</h1>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-4">
+        <div class="position-relative">
+          <i class="bi bi-search search-icon"></i>
+          <input type="text" class="form-control search-input" name="search" placeholder="Buscar páginas..." value="<%= pagination?.search || '' %>">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" name="hasError">
+          <option value="">Todos os status</option>
+          <option value="true" <%= pagination?.hasError === 'true' ? 'selected' : '' %>>Com erros</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>URL</th>
+            <th>Fonte</th>
+            <th>Idioma</th>
+            <th>Indexada</th>
+            <th>Erro</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (data?.data?.length > 0) { %>
+            <% data.data.forEach(page => { %>
+              <tr>
+                <td><small><%= page.title ? page.title.substring(0, 60) : 'Sem título' %></small></td>
+                <td><small><a href="<%= page.url %>" target="_blank"><%= page.url.substring(0, 40) %>...</a></small></td>
+                <td><span class="badge bg-light text-dark"><%= page.source?.name || '-' %></span></td>
+                <td><%= page.language || '-' %></td>
+                <td>
+                  <% if (page.last_indexed_at) { %>
+                    <i class="bi bi-check-circle text-success"></i>
+                  <% } else { %>
+                    <i class="bi bi-clock text-warning"></i>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (page.has_error) { %>
+                    <span class="badge bg-danger" title="<%= page.error_message %>"><i class="bi bi-exclamation-triangle"></i></span>
+                  <% } else { %>
+                    -
+                  <% } %>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a href="<%= page.url %>" target="_blank" class="btn btn-outline-secondary" title="Ver original">
+                      <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                    <button class="btn btn-outline-primary" onclick="reindexPage('<%= page.id %>')" title="Reindexar">
+                      <i class="bi bi-arrow-repeat"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Nenhuma página encontrada</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% if (data?.pages > 1) { %>
+    <div class="card-footer">
+      <nav>
+        <ul class="pagination justify-content-center mb-0">
+          <% for (let i = 1; i <= data.pages; i++) { %>
+            <li class="page-item <%= data.page === i ? 'active' : '' %>">
+              <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+            </li>
+          <% } %>
+        </ul>
+      </nav>
+    </div>
+  <% } %>
+</div>
+
+<script>
+  async function reindexPage(pageId) {
+    try {
+      await axios.post('/api/pages/' + pageId + '/reindex');
+      alert('Página reindexada com sucesso!');
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+</script>

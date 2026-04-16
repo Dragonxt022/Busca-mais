@@ -1,0 +1,47 @@
+# Dependencies das apps
+busca-plus-search/node_modules/
+busca-plus-crawler/node_modules/
+
+# Volumes Docker (dados - não commitar)
+postgres_data/
+redis_data/
+typesense_data/
+minio_data/
+
+# Screenshots e Images (dados)
+screenshots/
+images/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Docker override (desenvolvimento local)
+docker-compose.override.yml

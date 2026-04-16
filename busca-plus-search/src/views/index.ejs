@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Busca+</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 14px;
+      color: #202124;
+      background: #fff;
+      line-height: 1.58;
+    }
+    a {
+      text-decoration: none;
+      color: #1a0dab;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 6px 16px;
+      border-bottom: 1px solid #dfe1e5;
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: 500;
+      color: #202124;
+      margin-right: 28px;
+    }
+    .logo span {
+      color: #4885ed;
+    }
+    .search-header {
+      flex: 1;
+      max-width: 584px;
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #dfe1e5;
+      border-radius: 24px;
+      box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+      padding: 5px 8px 5px 14px;
+      height: 44px;
+    }
+    .search-header:focus-within {
+      box-shadow: 0 1px 6px rgba(32,33,36,0.4);
+    }
+    .search-header input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      color: #202124;
+      background: transparent;
+    }
+    .search-header .material-icons {
+      color: #9aa0a6;
+      font-size: 20px;
+      margin-right: 8px;
+    }
+    .search-header .clear-btn {
+      cursor: pointer;
+      color: #70757a;
+      padding: 4px;
+      margin-left: 4px;
+    }
+    .search-header .clear-btn:hover {
+      color: #202124;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      gap: 12px;
+    }
+    .nav-links .material-icons {
+      color: #5f6368;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+    }
+    .nav-links .material-icons:hover {
+      background: #f1f3f4;
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .tabs {
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid #dfe1e5;
+      margin-left: 160px;
+    }
+    .tab {
+      display: flex;
+      align-items: center;
+      padding: 12px 12px;
+      color: #5f6368;
+      font-size: 14px;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+    }
+    .tab:hover {
+      color: #202124;
+    }
+    .tab.active {
+      color: #1a73e8;
+      border-bottom-color: #1a73e8;
+    }
+    .tab .material-icons {
+      font-size: 18px;
+      margin-right: 4px;
+    }
+    .main-content {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+    .results-column {
+      flex: 1;
+      max-width: 652px;
+      padding-right: 32px;
+    }
+    .side-column {
+      width: 372px;
+      flex-shrink: 0;
+    }
+    .result-card {
+      margin-bottom: 24px;
+    }
+    .result-url {
+      color: #202124;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .result-url .breadcrumb {
+      color: #5f6368;
+      font-size: 12px;
+    }
+    .result-title {
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    .result-title a {
+      color: #1a0dab;
+    }
+    .result-description {
+      color: #4d5156;
+      font-size: 14px;
+      line-height: 1.58;
+    }
+    .highlight {
+      background-color: #fef9c3;
+      padding: 0 2px;
+    }
+    .result-actions {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #5f6368;
+    }
+    .result-actions span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .result-actions span:hover {
+      color: #1a73e8;
+    }
+    .stats-line {
+      color: #70757a;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .side-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .side-card h3 {
+      font-size: 20px;
+      font-weight: 400;
+      color: #202124;
+      margin-bottom: 12px;
+    }
+    .people-also-search {
+      margin-bottom: 24px;
+    }
+    .people-also-search h4 {
+      font-size: 14px;
+      font-weight: 500;
+      color: #202124;
+      margin-bottom: 12px;
+    }
+    .people-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .people-item {
+      background: #fff;
+      border: 1px solid #dfe1e5;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: #1a0dab;
+      cursor: pointer;
+    }
+    .people-item:hover {
+      text-decoration: underline;
+    }
+    .related-searches h4 {
+      font-size: 14px;
+      font-weight: 500;
+      color: #202124;
+      margin-bottom: 12px;
+    }
+    .related-list {
+      list-style: none;
+    }
+    .related-list li {
+      margin-bottom: 8px;
+    }
+    .related-list li a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #1a0dab;
+      font-size: 14px;
+    }
+    .related-list li a:hover {
+      text-decoration: underline;
+    }
+    .related-list .material-icons {
+      font-size: 16px;
+      color: #70757a;
+    }
+    .pagination {
+      display: flex;
+      align-items: center;
+      margin-top: 24px;
+      font-size: 13px;
+    }
+    .pagination a {
+      color: #1a0dab;
+      padding: 4px 8px;
+    }
+    .pagination a:hover {
+      text-decoration: underline;
+    }
+    .pagination .current {
+      padding: 0 12px;
+    }
+    
+    /* Image Grid Styles */
+    .images-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      padding: 20px 0;
+    }
+    .image-card {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(32,33,36,0.18);
+      transition: transform 0.2s, box-shadow 0.2s;
+      background: #f8f9fa;
+    }
+    .image-card:hover {
+      transform: scale(1.02);
+      box-shadow: 0 2px 12px rgba(32,33,36,0.3);
+    }
+    .image-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+    .image-card .image-info {
+      padding: 8px 12px;
+      background: #fff;
+    }
+    .image-card .image-title {
+      font-size: 12px;
+      color: #202124;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .image-card .image-domain {
+      font-size: 11px;
+      color: #70757a;
+      margin-top: 2px;
+    }
+    
+    @media (max-width: 1200px) {
+      .side-column {
+        display: none;
+      }
+      .tabs {
+        margin-left: 0;
+      }
+    }
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 16px 8px;
+      }
+      .results-column {
+        padding-right: 0;
+        max-width: 100%;
+      }
+      .nav-links {
+        display: none;
+      }
+      .tabs {
+        overflow-x: auto;
+        margin-left: 0;
+      }
+      .images-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+    }
+    .empty-state {
+      text-align: center;
+      padding: 100px 20px;
+    }
+    .empty-state h1 {
+      font-size: 48px;
+      font-weight: 400;
+      margin-bottom: 24px;
+      color: #202124;
+    }
+    .empty-state .logo-large {
+      font-size: 72px;
+      margin-bottom: 16px;
+    }
+    .initial-search {
+      max-width: 584px;
+      margin: 0 auto;
+    }
+    .initial-search .search-input-large {
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 16px;
+      border: 1px solid #dfe1e5;
+      border-radius: 24px;
+      outline: none;
+      box-shadow: 0 1px 6px rgba(32,33,36,0.28);
+    }
+    .initial-search .search-input-large:focus {
+      box-shadow: 0 1px 6px rgba(32,33,36,0.4);
+    }
+    .initial-buttons {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .initial-buttons button {
+      background: #f8f9fa;
+      border: 1px solid #f8f9fa;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #3c4043;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .initial-buttons button:hover {
+      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+      border-color: #dadce0;
+    }
+  </style>
+</head>
+<body>
+  <% if (!query) { %>
+    <div class="header">
+      <div class="logo">Busca<span>+</span></div>
+      <div class="nav-links">
+        <span class="material-icons">apps</span>
+        <span class="material-icons">notifications</span>
+        <div class="user-avatar">B</div>
+      </div>
+    </div>
+    <div class="empty-state">
+      <div class="logo-large logo">Busca<span>+</span></div>
+      <form class="initial-search" action="/" method="GET">
+        <div class="search-header">
+          <span class="material-icons">search</span>
+          <input type="text" name="q" class="form-control" placeholder="Pesquisar no Busca+" autofocus>
+          <span class="material-icons clear-btn">close</span>
+        </div>
+        <div class="initial-buttons">
+          <button type="submit">Pesquisa Busca+</button>
+          <button type="button">Estou com sorte</button>
+        </div>
+      </form>
+    </div>
+  <% } else { %>
+    <div class="header">
+      <div class="logo">Busca<span>+</span></div>
+      <form class="search-header" action="/" method="GET">
+        <span class="material-icons">search</span>
+        <input type="text" name="q" value="<%= query %>" autocomplete="off">
+        <input type="hidden" name="tab" id="tabInput" value="<%= tab || 'all' %>">
+        <span class="material-icons clear-btn">close</span>
+      </form>
+      <div class="nav-links">
+        <span class="material-icons">apps</span>
+        <span class="material-icons">notifications</span>
+        <div class="user-avatar">B</div>
+      </div>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab <%= (!tab || tab === 'all') ? 'active' : '' %>" data-tab="all">
+        <span class="material-icons">search</span>
+        Todos
+      </div>
+      <div class="tab <%= tab === 'images' ? 'active' : '' %>" data-tab="images">
+        <span class="material-icons">image</span>
+        Imagens
+      </div>
+      <div class="tab <%= tab === 'videos' ? 'active' : '' %>" data-tab="videos">
+        <span class="material-icons">videocam</span>
+        Vídeos
+      </div>
+      <div class="tab <%= tab === 'maps' ? 'active' : '' %>" data-tab="maps">
+        <span class="material-icons">map</span>
+        Maps
+      </div>
+      <div class="tab <%= tab === 'news' ? 'active' : '' %>" data-tab="news">
+        <span class="material-icons">article</span>
+        Notícias
+      </div>
+      <div class="tab" data-tab="more">
+        <span class="material-icons">more_vert</span>
+        Mais
+      </div>
+    </div>
+
+    <div class="main-content">
+      <% if (tab === 'images') { %>
+        <!-- Image Results Tab -->
+        <div class="results-column" style="max-width: 100%;">
+          <div class="stats-line">
+            <%= totalHits %> imagens para "<%= query %>"
+          </div>
+
+          <% if (imageResults && imageResults.length > 0) { %>
+            <div class="images-grid">
+              <% imageResults.forEach(result => { 
+                if (result.images && result.images.length > 0) { 
+                  result.images.slice(0, 4).forEach(img => { 
+                    const imgName = img.thumbnailPath ? img.thumbnailPath.split('/').pop() : img.localPath.split('/').pop();
+              %>
+                <a href="<%= result.url %>" target="_blank" rel="noopener noreferrer" class="image-card" title="<%= img.alt || result.title %>">
+                  <img src="/images/<%= imgName %>" alt="<%= img.alt || result.title %>" onerror="this.style.display='none'">
+                  <div class="image-info">
+                    <div class="image-title"><%= img.alt || result.title %></div>
+                    <div class="image-domain"><%= result.domain %></div>
+                  </div>
+                </a>
+              <% }); } }); %>
+            </div>
+
+            <% if (totalPages > 1) { %>
+              <div class="pagination">
+                <% if (page > 1) { %>
+                  <a href="/?q=<%= encodeURIComponent(query) %>&tab=images&page=<%= page - 1 %>">&laquo; Anterior</a>
+                <% } %>
+                <span class="current">Página <%= page %> de <%= totalPages %></span>
+                <% if (page < totalPages) { %>
+                  <a href="/?q=<%= encodeURIComponent(query) %>&tab=images&page=<%= page + 1 %>">Próxima &raquo;</a>
+                <% } %>
+              </div>
+            <% } %>
+          <% } else { %>
+            <div class="empty-state">
+              <h3>Nenhuma imagem encontrada</h3>
+              <p>Tente buscar com outros termos</p>
+            </div>
+          <% } %>
+        </div>
+      <% } else { %>
+        <!-- Regular Results Tab -->
+        <div class="results-column">
+          <div class="stats-line">
+            <%= totalHits %> resultados para "<%= query %>"
+          </div>
+
+          <% if (results && results.length > 0) { %>
+            <% results.forEach(result => { %>
+              <div class="result-card">
+                <div class="result-url">
+                  <span class="breadcrumb">
+                    <i class="material-icons" style="font-size: 12px;">language</i>
+                    <%= result.url %>
+                  </span>
+                </div>
+                <h3 class="result-title">
+                  <a href="<%= result.url %>" target="_blank" rel="noopener noreferrer">
+                    <% if (result.highlights && result.highlights.title) { %>
+                      <%- result.highlights.title %>
+                    <% } else { %>
+                      <%= result.title %>
+                    <% } %>
+                  </a>
+                </h3>
+                <p class="result-description">
+                  <% if (result.highlights && result.highlights.content && result.highlights.content.length > 0) { %>
+                    <% result.highlights.content.forEach((snippet, i) => { %>
+                      <% if (i > 0) { %>... <% } %>
+                      <%- snippet %>
+                    <% }); %>
+                  <% } else { %>
+                    <%= result.description ? result.description.substring(0, 200) + '...' : 'Sem descrição disponível' %>
+                  <% } %>
+                </p>
+                <% if (result.imageThumbnails && result.imageThumbnails.length > 0) { %>
+                  <div style="display: flex; gap: 8px; margin-top: 8px; overflow-x: auto;">
+                    <% result.imageThumbnails.slice(0, 6).forEach((thumb, i) => { %>
+                      <img src="<%= thumb %>" alt="<%= result.imageAlts && result.imageAlts[i] ? result.imageAlts[i] : 'Imagem' %>" style="width: 100px; height: 75px; object-fit: cover; border-radius: 4px; border: 1px solid #dfe1e5;" onerror="this.style.display='none'">
+                    <% }); %>
+                  </div>
+                <% } %>
+                <div class="result-actions">
+                  <span><i class="material-icons">save</i> Salvar</span>
+                  <span><i class="material-icons">share</i> Compartilhar</span>
+                  <span><i class="material-icons">format_quote</i> Citar</span>
+                </div>
+              </div>
+            <% }); %>
+
+            <% if (totalPages > 1) { %>
+              <div class="pagination">
+                <% if (page > 1) { %>
+                  <a href="/?q=<%= encodeURIComponent(query) %>&page=<%= page - 1 %>">&laquo; Anterior</a>
+                <% } %>
+                <span class="current">Página <%= page %> de <%= totalPages %></span>
+                <% if (page < totalPages) { %>
+                  <a href="/?q=<%= encodeURIComponent(query) %>&page=<%= page + 1 %>">Próxima &raquo;</a>
+                <% } %>
+              </div>
+            <% } %>
+          <% } else { %>
+            <div class="empty-state">
+              <h3>Nenhum resultado encontrado</h3>
+              <p>Tente buscar com outros termos</p>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="side-column">
+          <div class="side-card people-also-search">
+            <h4>Pessoas também pesquisam</h4>
+            <div class="people-list">
+              <a href="/?q=<%= encodeURIComponent(query + ' tutorial') %>" class="people-item"><%= query %> tutorial</a>
+              <a href="/?q=<%= encodeURIComponent(query + ' como fazer') %>" class="people-item">como fazer <%= query %></a>
+              <a href="/?q=<%= encodeURIComponent(query + ' exemplos') %>" class="people-item"><%= query %> exemplos</a>
+              <a href="/?q=<%= encodeURIComponent(query + ' gratis') %>" class="people-item"><%= query %> gratis</a>
+            </div>
+          </div>
+
+          <div class="side-card related-searches">
+            <h4>Pesquisas relacionadas</h4>
+            <ul class="related-list">
+              <li>
+                <a href="/?q=<%= encodeURIComponent(query + ' brasil') %>">
+                  <i class="material-icons">trending_neutral</i>
+                  <%= query %> Brasil
+                </a>
+              </li>
+              <li>
+                <a href="/?q=<%= encodeURIComponent('o que é ' + query) %>">
+                  <i class="material-icons">trending_neutral</i>
+                  o que é <%= query %>
+                </a>
+              </li>
+              <li>
+                <a href="/?q=<%= encodeURIComponent(query + ' online') %>">
+                  <i class="material-icons">trending_neutral</i>
+                  <%= query %> online
+                </a>
+              </li>
+              <li>
+                <a href="/?q=<%= encodeURIComponent(query + ' download') %>">
+                  <i class="material-icons">trending_neutral</i>
+                  <%= query %> download
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div class="side-card">
+            <h3>Sobre <%= query %></h3>
+            <p style="color: #5f6368; font-size: 14px;">
+              Resultados baseados em fontes indexadas pelo Busca+. 
+              Use as abas acima para explorar diferentes tipos de conteúdo.
+            </p>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
+
+  <script>
+    // Tab navigation
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        const tabValue = this.dataset.tab;
+        document.getElementById('tabInput').value = tabValue;
+        this.closest('form').submit();
+      });
+    });
+
+    // Clear button
+    document.querySelectorAll('.clear-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const input = this.parentElement.querySelector('input[type="text"]');
+        input.value = '';
+        input.focus();
+      });
+    });
+  </script>
+</body>
+</html>
