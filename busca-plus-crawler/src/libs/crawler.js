@@ -11,6 +11,7 @@ const config = require('../config');
 // Image processing constants
 const IMAGES_DIR_NAME = 'images';
 const MAX_IMAGE_SIZE = 1024 * 1024 * 2; // 2MB max per image
+const MAX_IMAGES_PER_PAGE = 5; // Máximo de imagens por página (será deduplicado)
 const THUMBNAIL_WIDTH = 320;
 const THUMBNAIL_HEIGHT = 240;
 
@@ -127,10 +128,11 @@ class Crawler {
       const parser = new HtmlParser(html, finalUrl);
       const parsedData = parser.extractAll();
 
-      // Process images from the page
+      // Process images from the page (limit to MAX_IMAGES_PER_PAGE)
       let processedImages = [];
       if (parsedData.images && parsedData.images.length > 0) {
-        processedImages = await this.processImages(parsedData.images, finalUrl);
+        const limitedImages = parsedData.images.slice(0, MAX_IMAGES_PER_PAGE);
+        processedImages = await this.processImages(limitedImages, finalUrl);
       }
 
       const endTime = Date.now();
@@ -270,6 +272,84 @@ class Crawler {
   }
 
   /**
+   * Normalizes image filename to base name (removes -thumb, -thumbnail, etc)
+   */
+  normalizeImageName(filename) {
+    return filename
+      .replace(/[-_]?(thumb|thumbnail|mini|small|preview|preview)(?=\.[^.]+$)/gi, '')
+      .replace(/[-_]?\d+x\d+(?=\.[^.]+$)/gi, '') // Remove size suffixes like -300x200
+      .replace(/[-_]?\d+w(?=\.[^.]+$)/gi, '')    // Remove width suffixes like -300w
+      .replace(/[-_]?s(?=\.[^.]+$)/gi, '')       // Remove size suffix s
+      .replace(/[-_]?m(?=\.[^.]+$)/gi, '')       // Remove size suffix m
+      .replace(/[-_]?l(?=\.[^.]+$)/gi, '');      // Remove size suffix l
+  }
+
+  /**
+   * Checks if two image URLs are duplicates
+   */
+  isDuplicateImage(img1, img2) {
+    if (img1.originalUrl === img2.originalUrl) return true;
+    
+    // Compare normalized filenames
+    const url1Parts = img1.originalUrl.split('/');
+    const url2Parts = img2.originalUrl.split('/');
+    const name1 = url1Parts[url1Parts.length - 1].split('.')[0];
+    const name2 = url2Parts[url2Parts.length - 1].split('.')[0];
+    
+    if (this.normalizeImageName(name1) === this.normalizeImageName(name2)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Deduplicates images, prioritizing originals over thumbnails
+   */
+  deduplicateImages(images) {
+    const unique = [];
+    const seen = new Set();
+
+    for (const img of images) {
+      // Create a normalized key for comparison
+      const urlParts = img.originalUrl.split('/');
+      const filename = urlParts[urlParts.length - 1].split('.')[0];
+      const normalizedName = this.normalizeImageName(filename);
+      const isThumbnail = /[-_]?(thumb|thumbnail|mini|small|preview)/i.test(filename);
+      
+      let found = false;
+      let foundIndex = -1;
+      
+      // Check if we already have this image (or its original/thumbnail)
+      for (let i = 0; i < unique.length; i++) {
+        const existingParts = unique[i].originalUrl.split('/');
+        const existingName = existingParts[existingParts.length - 1].split('.')[0];
+        const existingNormalized = this.normalizeImageName(existingName);
+        
+        if (normalizedName === existingNormalized) {
+          found = true;
+          foundIndex = i;
+          break;
+        }
+      }
+
+      if (found) {
+        // If we have both original and thumbnail, keep only the original
+        const existingIsThumb = /[-_]?(thumb|thumbnail|mini|small|preview)/i.test(unique[foundIndex].originalUrl);
+        if (!isThumbnail && existingIsThumb) {
+          // Replace thumbnail with original
+          unique[foundIndex] = img;
+        }
+        // Otherwise keep existing (thumbnail or original)
+      } else {
+        unique.push(img);
+      }
+    }
+
+    return unique;
+  }
+
+  /**
    * Downloads and processes images from a page
    * @param {Object[]} images - Array of image objects from parser
    * @param {string} pageUrl - Source page URL
@@ -285,7 +365,7 @@ class Crawler {
     const domain = extractDomain(pageUrl);
     const pageHash = hashUrl(pageUrl).substring(0, 8);
 
-    for (const img of images.slice(0, 10)) { // Limit to 10 images per page
+    for (const img of images.slice(0, MAX_IMAGES_PER_PAGE)) {
       try {
         const result = await this.downloadAndCompressImage(img.src, imagesDir, domain, pageHash);
         if (result) {
@@ -295,6 +375,8 @@ class Crawler {
             thumbnailPath: result.thumbnailPath,
             alt: img.alt || '',
             title: img.title || '',
+            context: img.context || '',
+            filename: img.filename || '',
             width: img.width || result.width,
             height: img.height || result.height,
           });
@@ -304,7 +386,8 @@ class Crawler {
       }
     }
 
-    return processedImages;
+    // Deduplicate images
+    return this.deduplicateImages(processedImages);
   }
 
   /**

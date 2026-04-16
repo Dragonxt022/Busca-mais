@@ -1,5 +1,10 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
   <h1 class="h2"><i class="bi bi-clock-history me-2"></i>Jobs de Coleta</h1>
+  <div class="btn-toolbar mb-2 mb-md-0">
+    <button class="btn btn-outline-danger btn-sm" onclick="cleanCompletedJobs()">
+      <i class="bi bi-trash me-1"></i> Limpar Jobs Concluídos
+    </button>
+  </div>
 </div>
 
 <div class="card">
@@ -13,31 +18,40 @@
             <th>Tipo</th>
             <th>Status</th>
             <th>Páginas Processadas</th>
-            <th>Erro</th>
             <th>Iniciado</th>
-            <th>Finalizado</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
           <% if (data?.data?.length > 0) { %>
             <% data.data.forEach(job => { %>
-              <tr>
+              <tr id="job-<%= job.id %>">
                 <td><small>#<%= job.id %></small></td>
                 <td><span class="badge bg-light text-dark"><%= job.source?.name || '-' %></span></td>
                 <td><span class="badge bg-secondary"><%= job.type %></span></td>
                 <td>
-                  <span class="badge <%= job.status === 'completed' ? 'bg-success' : job.status === 'failed' ? 'bg-danger' : job.status === 'active' ? 'bg-primary' : 'bg-warning' %>">
+                  <span class="badge <%= job.status === 'completed' ? 'bg-success' : job.status === 'failed' ? 'bg-danger' : job.status === 'active' ? 'bg-primary' : job.status === 'pending' ? 'bg-warning' : 'bg-secondary' %>">
                     <%= job.status %>
                   </span>
                 </td>
                 <td><%= job.processed_pages || 0 %> / <%= job.total_pages || 0 %></td>
-                <td><small><%= job.error_message ? job.error_message.substring(0, 30) : '-' %></small></td>
                 <td><small><%= new Date(job.created_at).toLocaleString('pt-BR') %></small></td>
-                <td><small><%= job.completed_at ? new Date(job.completed_at).toLocaleString('pt-BR') : '-' %></small></td>
+                <td>
+                  <% if (job.status === 'pending' || job.status === 'active') { %>
+                    <button class="btn btn-sm btn-outline-warning" onclick="cancelJob('<%= job.id %>')" title="Cancelar">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  <% } %>
+                  <% if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') { %>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteJob('<%= job.id %>')" title="Excluir">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  <% } %>
+                </td>
               </tr>
             <% }); %>
           <% } else { %>
-            <tr><td colspan="8" class="text-center text-muted py-4">Nenhum job encontrado</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-4">Nenhum job encontrado</td></tr>
           <% } %>
         </tbody>
       </table>
@@ -57,3 +71,36 @@
     </div>
   <% } %>
 </div>
+
+<script>
+  async function cancelJob(jobId) {
+    if (!confirm('Deseja cancelar este job?')) return;
+    try {
+      await axios.post('/api/jobs/' + jobId + '/cancel');
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+
+  async function deleteJob(jobId) {
+    if (!confirm('Deseja excluir este job?')) return;
+    try {
+      await axios.delete('/api/jobs/' + jobId);
+      document.getElementById('job-' + jobId).remove();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+
+  async function cleanCompletedJobs() {
+    if (!confirm('Deseja limpar todos os jobs concluídos (com sucesso ou falha)?')) return;
+    try {
+      const response = await axios.post('/api/jobs/clean-completed');
+      alert(response.data.deleted + ' jobs removidos');
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+</script>

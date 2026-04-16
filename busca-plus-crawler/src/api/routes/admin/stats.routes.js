@@ -3,6 +3,7 @@ const router = express.Router();
 const { Page, Source, CrawlJob, SearchLog } = require('../../../models');
 const { Op } = require('sequelize');
 const indexer = require('../../../libs/indexer');
+const { typesense, COLLECTION_NAME, ensureCollection } = require('../../../config/typesense');
 
 router.get('/stats', async (req, res) => {
   try {
@@ -211,6 +212,84 @@ router.post('/reindex-all', async (req, res) => {
 
     const result = await indexer.indexPages(pages);
     res.json({ message: 'Reindex started', ...result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Limpar índice do Typesense
+router.post('/clear-index', async (req, res) => {
+  try {
+    await typesense.collections(COLLECTION_NAME).delete();
+    await ensureCollection();
+    res.json({ message: 'Índice do Typesense limpo com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Limpar banco de dados (páginas, jobs)
+router.post('/clear-database', async (req, res) => {
+  try {
+    const sequelize = require('../../../config/database');
+    
+    // Deletar na ordem correta (filhas primeiro)
+    await sequelize.query('DELETE FROM "search_logs"');
+    await sequelize.query('DELETE FROM "crawl_jobs"');
+    await sequelize.query('DELETE FROM "pages"');
+    await sequelize.query('DELETE FROM "sources"');
+    
+    res.json({ 
+      message: 'Banco de dados limpo'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Limpar tudo (índice + banco)
+router.post('/clear-all', async (req, res) => {
+  try {
+    const sequelize = require('../../../config/database');
+    
+    // Limpar Typesense
+    try {
+      await typesense.collections(COLLECTION_NAME).delete();
+      await ensureCollection();
+    } catch (e) {
+      // Coleção pode não existir
+    }
+    
+    // Deletar na ordem correta (filhas primeiro)
+    await sequelize.query('DELETE FROM "search_logs"');
+    await sequelize.query('DELETE FROM "crawl_jobs"');
+    await sequelize.query('DELETE FROM "pages"');
+    await sequelize.query('DELETE FROM "sources"');
+    
+    res.json({ 
+      message: 'Tudo limpo com sucesso!'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Estatísticas do Typesense
+router.get('/index-stats', async (req, res) => {
+  try {
+    const stats = await typesense.collections(COLLECTION_NAME).retrieve();
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sincronizar modelos do catálogo
+router.post('/sync-catalog', async (req, res) => {
+  try {
+    const sequelize = require('../../../config/database');
+    await sequelize.sync({ alter: true });
+    res.json({ message: 'Modelos do catálogo sincronizados com sucesso' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

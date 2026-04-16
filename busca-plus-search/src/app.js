@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 
+const apiRoutes = require('./api/routes');
+const { errorHandler, imageProxyMiddleware, notFoundHandler } = require('./api/middlewares');
+
 const app = express();
 
 app.set('views', path.join(__dirname, 'views'));
@@ -12,11 +15,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "http://localhost:3001"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http://localhost:3001", "http://localhost:3000"],
-      connectSrc: ["'self'", "http://localhost:3001"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'http://localhost:3001'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https:', 'http://localhost:3001', 'http://localhost:3000'],
+      connectSrc: ["'self'", 'http://localhost:3001'],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
     },
@@ -28,15 +31,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, 'public')));
-
-const searchRoutes = require('./routes/search.routes');
-app.use('/', searchRoutes);
+app.use('/images', imageProxyMiddleware);
+app.use('/', apiRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
-const { errorHandler, notFoundHandler } = require('./api/middlewares/error.middleware');
 
 app.use(notFoundHandler);
 app.use(errorHandler);

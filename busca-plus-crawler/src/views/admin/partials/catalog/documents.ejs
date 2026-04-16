@@ -1,0 +1,79 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <div>
+    <a href="/admin/catalog" class="btn btn-sm btn-outline-secondary me-2">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <h1 class="h2 d-inline"><i class="bi bi-file-earmark-pdf me-2"></i><%= title %></h1>
+    <span class="badge bg-secondary ms-2"><%= documents ? documents.length : 0 %> documentos</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Tipo</th>
+            <th>Número/Ano</th>
+            <th>Data Doc.</th>
+            <th>Data Pub.</th>
+            <th>Descrição</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!documents || documents.length === 0) { %>
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                Nenhum documento catalogado
+              </td>
+            </tr>
+          <% } else { %>
+            <% documents.forEach(function(doc) { %>
+              <tr>
+                <td><span class="badge bg-secondary"><%= doc.tipo || '-' %></span></td>
+                <td><small><%= doc.numero_ano || '-' %></small></td>
+                <td><small><%= doc.data_documento || '-' %></small></td>
+                <td><small><%= doc.data_publicacao || '-' %></small></td>
+                <td>
+                  <small class="text-truncate d-inline-block" style="max-width: 300px;" title="<%= doc.descricao %>">
+                    <%= doc.descricao ? doc.descricao.substring(0, 80) + '...' : '-' %>
+                  </small>
+                </td>
+                <td>
+                  <span class="badge badge-status <%= doc.status === 'indexed' ? 'bg-success' : doc.status === 'error' ? 'bg-danger' : 'bg-warning' %>">
+                    <%= doc.status || 'pending' %>
+                  </span>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <% if (doc.download_url) { %>
+                      <a href="<%= doc.download_url %>" target="_blank" class="btn btn-outline-danger" title="Baixar PDF">
+                        <i class="bi bi-file-pdf"></i>
+                      </a>
+                    <% } %>
+                    <% if (doc.detalhe_url) { %>
+                      <a href="<%= doc.detalhe_url %>" target="_blank" class="btn btn-outline-info" title="Ver Detalhe">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                      </a>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+              <% if (doc.ementa) { %>
+                <tr class="table-secondary">
+                  <td colspan="7">
+                    <small><strong>Ementa:</strong> <%= doc.ementa %></small>
+                  </td>
+                </tr>
+              <% } %>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

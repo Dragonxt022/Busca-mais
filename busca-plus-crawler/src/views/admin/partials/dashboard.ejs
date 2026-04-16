@@ -1,8 +1,17 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
   <h1 class="h2"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
   <div class="btn-toolbar mb-2 mb-md-0">
-    <button class="btn btn-primary" onclick="reindexAll()">
-      <i class="bi bi-arrow-repeat me-1"></i> Reindexar Tudo
+    <button class="btn btn-outline-danger btn-sm me-2" onclick="clearAll()">
+      <i class="bi bi-trash me-1"></i> Limpar Tudo
+    </button>
+    <button class="btn btn-outline-warning btn-sm me-2" onclick="clearIndex()">
+      <i class="bi bi-archive me-1"></i> Limpar Índice
+    </button>
+    <button class="btn btn-outline-secondary btn-sm me-2" onclick="clearDatabase()">
+      <i class="bi bi-database-x me-1"></i> Limpar Banco
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="reindexAll()">
+      <i class="bi bi-arrow-repeat me-1"></i> Reindexar
     </button>
   </div>
 </div>
@@ -146,3 +155,54 @@
     </div>
   </div>
 </div>
+
+<script>
+  async function reindexAll() {
+    if (!confirm('Reindexar todas as páginas?')) return;
+    try {
+      const btn = event.target.closest('button');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Indexando...';
+      const response = await axios.post('/api/admin/reindex-all');
+      alert('Reindexação iniciada: ' + response.data.message);
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+      location.reload();
+    }
+  }
+
+  async function clearIndex() {
+    if (!confirm('Limpar apenas o índice do Typesense?\nAs páginas no banco serão mantidas.')) return;
+    try {
+      const response = await axios.post('/api/admin/clear-index');
+      alert(response.data.message);
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+
+  async function clearDatabase() {
+    if (!confirm('Limpar apenas o banco de dados?\nO índice do Typesense será mantido.\n\nATENÇÃO: Isso removerá TODAS as páginas e jobs!')) return;
+    try {
+      const response = await axios.post('/api/admin/clear-database');
+      alert('Banco limpo: ' + response.data.deletedPages + ' páginas, ' + response.data.deletedJobs + ' jobs removidos');
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+
+  async function clearAll() {
+    if (!confirm('⚠️ ATENÇÃO: Isso irá remover:\n\n- Todas as páginas do banco\n- Todos os jobs\n- Todos os logs\n- Todo o índice do Typesense\n\nEsta ação NÃO pode ser desfeita!\n\nContinuar?')) return;
+    if (!confirm('Tem certeza absoluta? Digite OK para confirmar.')) return;
+    try {
+      const response = await axios.post('/api/admin/clear-all');
+      alert('✅ ' + response.data.message);
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+</script>

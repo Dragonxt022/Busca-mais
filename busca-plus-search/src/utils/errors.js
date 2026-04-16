@@ -8,9 +8,9 @@ class AppError extends Error {
 }
 
 const errorTypes = {
-  NOT_FOUND: (resource) => new AppError(`${resource} não encontrado`, 404),
+  NOT_FOUND: (resource) => new AppError(`${resource} nao encontrado`, 404),
   VALIDATION: (message) => new AppError(message, 400),
-  UNAUTHORIZED: (message = 'Não autorizado') => new AppError(message, 401),
+  UNAUTHORIZED: (message = 'Nao autorizado') => new AppError(message, 401),
   INTERNAL: (message = 'Erro interno do servidor') => new AppError(message, 500),
 };
 

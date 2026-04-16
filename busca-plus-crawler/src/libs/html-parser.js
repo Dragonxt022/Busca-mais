@@ -263,15 +263,16 @@ class HtmlParser {
   }
 
   /**
-   * Extracts all images from the page
+   * Extracts all images from the page with context
    * @returns {Object[]} Array of image objects
    */
   extractImages() {
     const images = [];
     const seen = new Set();
+    const $ = this.$;
     
     this.$('img').each((_, el) => {
-      const $el = this.$(el);
+      const $el = $(el);
       let src = $el.attr('src');
       
       if (!src) return;
@@ -292,10 +293,30 @@ class HtmlParser {
       // Only include images with minimum size (skip tiny icons/spacers)
       if (width > 0 && height > 0 && (width < 50 || height < 50)) return;
       
+      // Extract context: text from nearby elements
+      let context = '';
+      const parent = $el.parent();
+      const grandparent = parent.parent();
+      
+      // Try to get caption or nearby text
+      const nearbyText = [
+        $el.closest('figure').find('figcaption').text(),
+        $el.closest('picture').text(),
+        parent.find('p, span, div').first().text(),
+        grandparent.find('p, span').first().text(),
+      ].filter(Boolean).join(' ');
+      
+      context = this.cleanText(nearbyText) || '';
+      
+      // Extract filename from URL
+      const filename = src.split('/').pop().split('.')[0].replace(/[-_]/g, ' ');
+      
       images.push({
         src,
-        alt: this.cleanText(alt),
-        title: this.cleanText(title),
+        alt: this.cleanText(alt) || '',
+        title: this.cleanText(title) || '',
+        context: (context || '').substring(0, 200),
+        filename: filename,
         width,
         height,
       });
@@ -304,10 +325,13 @@ class HtmlParser {
     // Also check for Open Graph images
     const ogImage = this.$('meta[property="og:image"]').attr('content');
     if (ogImage && !seen.has(ogImage)) {
+      const ogTitle = this.$('meta[property="og:title"]').attr('content') || this.extractTitle() || '';
       images.unshift({
         src: this.resolveUrl(ogImage),
-        alt: this.extractTitle() || '',
+        alt: ogTitle,
         title: '',
+        context: ogTitle,
+        filename: '',
         width: 0,
         height: 0,
         isOg: true,
@@ -351,11 +375,12 @@ class HtmlParser {
   // Helper methods
 
   cleanText(text) {
-    if (!text) return null;
-    return text
+    if (!text) return '';
+    const result = text
       .replace(/\s+/g, ' ')
       .replace(/[\r\n]+/g, ' ')
       .trim();
+    return result || '';
   }
 
   resolveUrl(url) {

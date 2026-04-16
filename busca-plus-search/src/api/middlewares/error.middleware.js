@@ -11,15 +11,15 @@ const errorHandler = (err, req, res, next) => {
 
   logger.error('Unhandled error:', err);
 
-  res.status(500).render('error', {
+  return res.status(500).render('error', {
     message: 'Erro interno do servidor',
     error: { status: 500 },
   });
 };
 
 const notFoundHandler = (req, res) => {
-  res.status(404).render('error', {
-    message: 'Página não encontrada',
+  return res.status(404).render('error', {
+    message: 'Pagina nao encontrada',
     error: { status: 404 },
   });
 };

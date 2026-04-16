@@ -66,3 +66,17 @@ Invoke-RestMethod -Uri "http://localhost:3001/api/sources" `
 docker-compose up -d search-ui
 
 docker-compose restart search-ui crawler worker
+
+```
+## Comandos windows 
+
+```bash
+
+.\manage.ps1 start      # Iniciar
+.\manage.ps1 build     # Build crawler e iniciar
+.\manage.ps1 init     # Inicializar banco
+.\manage.ps1 logs      # Ver logs
+.\manage.ps1 status    # Ver status
+.\manage.ps1 clean     # Limpar tudo
+
+```

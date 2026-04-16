@@ -29,6 +29,8 @@ const collectionSchema = {
     { name: 'images', type: 'string[]', optional: true },
     { name: 'image_alts', type: 'string[]', optional: true },
     { name: 'image_thumbnails', type: 'string[]', optional: true },
+    { name: 'image_context', type: 'string[]', optional: true },
+    { name: 'image_filenames', type: 'string[]', optional: true },
     { name: 'has_images', type: 'bool', facet: true, optional: true },
     { name: 'language', type: 'string', facet: true, optional: true },
     { name: 'crawled_at', type: 'int64' },

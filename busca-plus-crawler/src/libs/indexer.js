@@ -40,23 +40,25 @@ class Indexer {
    * @returns {Object} Formatted image arrays
    */
   parseImagesForIndex(imagesData) {
-    if (!imagesData) return { images: [], image_alts: [], image_thumbnails: [], has_images: false };
+    if (!imagesData) return { images: [], image_alts: [], image_thumbnails: [], image_context: [], image_filenames: [], has_images: false };
     
     let images = [];
     try {
       images = typeof imagesData === 'string' ? JSON.parse(imagesData) : imagesData;
     } catch {
-      return { images: [], image_alts: [], image_thumbnails: [], has_images: false };
+      return { images: [], image_alts: [], image_thumbnails: [], image_context: [], image_filenames: [], has_images: false };
     }
 
     if (!Array.isArray(images) || images.length === 0) {
-      return { images: [], image_alts: [], image_thumbnails: [], has_images: false };
+      return { images: [], image_alts: [], image_thumbnails: [], image_context: [], image_filenames: [], has_images: false };
     }
 
     return {
-      images: images.map(img => this.getImageUrl(img.localPath || img.originalUrl)).filter(Boolean),
-      image_alts: images.map(img => img.alt || '').filter(Boolean),
+      images: images.map(img => this.getImageUrl(img.localPath || img.originalUrl || img.src)).filter(Boolean),
+      image_alts: images.map(img => img.alt || img.title || '').filter(Boolean),
       image_thumbnails: images.map(img => this.getImageUrl(img.thumbnailPath)).filter(Boolean),
+      image_context: images.map(img => img.context || '').filter(Boolean),
+      image_filenames: images.map(img => img.filename || '').filter(Boolean),
       has_images: true,
     };
   }
@@ -66,16 +68,24 @@ class Indexer {
    * @param {Object} page - Page data from database
    * @returns {boolean} Success status
    */
+  generateDescription(content, maxLength = 200) {
+    if (!content) return '';
+    const cleaned = content.replace(/\s+/g, ' ').trim();
+    if (cleaned.length <= maxLength) return cleaned;
+    return cleaned.substring(0, maxLength).replace(/\s\S*$/, '') + '...';
+  }
+
   async indexPage(page) {
     try {
       await this.init();
 
       const imageData = this.parseImagesForIndex(page.images);
+      const description = page.description || this.generateDescription(page.content_text);
 
       const document = {
         id: String(page.id),
         title: page.title || '',
-        description: page.description || '',
+        description: description,
         content: page.content_text || '',
         url: page.url,
         slug: page.slug || '',
@@ -85,6 +95,8 @@ class Indexer {
         images: imageData.images,
         image_alts: imageData.image_alts,
         image_thumbnails: imageData.image_thumbnails,
+        image_context: imageData.image_context,
+        image_filenames: imageData.image_filenames,
         has_images: imageData.has_images,
         language: page.language || 'pt',
         crawled_at: page.last_crawled_at ? new Date(page.last_crawled_at).getTime() : Date.now(),

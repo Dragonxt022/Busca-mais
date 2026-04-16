@@ -1,67 +1,65 @@
-const SearchService = require('../../services/search.service');
 const { validateSearch, validatePageId, validateSuggestion } = require('../validators/search.validator');
 const { errorTypes } = require('../../utils/errors');
+const {
+  RESULTS_PER_PAGE,
+  SEARCH_TABS,
+  SearchService,
+  buildIndexViewModel,
+} = require('../../modules/search');
 
 class SearchController {
+  constructor({ searchService = new SearchService() } = {}) {
+    this.searchService = searchService;
+
+    this.index = this.index.bind(this);
+    this.search = this.search.bind(this);
+    this.getPage = this.getPage.bind(this);
+    this.suggestions = this.suggestions.bind(this);
+    this.searchImages = this.searchImages.bind(this);
+  }
+
   async index(req, res, next) {
     try {
-      const { query, page, sourceId } = validateSearch(req.query) || {};
-      const tab = req.query.tab || 'all';
+      const searchData = validateSearch(req.query);
+      const tab = req.query.tab || SEARCH_TABS.ALL;
 
-      if (!query) {
-        return res.render('index', {
-          query: '',
-          results: null,
-          imageResults: null,
-          totalHits: 0,
-          page: 1,
-          totalPages: 0,
-          source: null,
-          tab,
-        });
+      if (!searchData) {
+        return res.render('index', buildIndexViewModel({ tab }));
       }
 
-      const searchService = new SearchService();
+      const { query, page, sourceId } = searchData;
 
-      if (tab === 'images') {
-        // Image search
-        const results = await searchService.searchImages(query, page, sourceId);
-        
-        res.render('index', {
-          query,
-          results: null,
-          imageResults: results.hits,
-          totalHits: results.found,
-          page,
-          totalPages: Math.ceil(results.found / 20),
-          source: sourceId,
-          tab,
-        });
-      } else {
-        // Regular search
-        const results = await searchService.search(query, page, sourceId);
+      if (tab === SEARCH_TABS.IMAGES) {
+        const results = await this.searchService.searchImages(query, page, sourceId);
 
-        res.render('index', {
-          query,
-          results: results.hits,
-          imageResults: null,
-          totalHits: results.found,
+        return res.render('index', buildIndexViewModel({
           page,
-          totalPages: Math.ceil(results.found / 10),
-          source: sourceId,
+          query,
+          results,
+          sourceId,
           tab,
-        });
+        }));
       }
+
+      const results = await this.searchService.search(query, page, sourceId);
+
+      return res.render('index', buildIndexViewModel({
+        page,
+        query,
+        results,
+        sourceId,
+        tab,
+      }));
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
   async search(req, res, next) {
     try {
-      const { query, page, sourceId } = validateSearch(req.query) || {};
+      const searchData = validateSearch(req.query);
 
-      if (!query) {
+      if (!searchData) {
         return res.json({
           hits: [],
           found: 0,
@@ -69,28 +67,27 @@ class SearchController {
         });
       }
 
-      const searchService = new SearchService();
-      const results = await searchService.search(query, page, sourceId);
+      const { query, page, sourceId } = searchData;
+      const results = await this.searchService.search(query, page, sourceId);
 
-      res.json(results);
+      return res.json(results);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
   async getPage(req, res, next) {
     try {
       const id = validatePageId(req.params.id);
-      const searchService = new SearchService();
-      const page = await searchService.getPageById(id);
+      const page = await this.searchService.getPageById(id);
 
       if (!page) {
-        throw errorTypes.NOT_FOUND('Página');
+        throw errorTypes.NOT_FOUND('Pagina');
       }
 
-      res.render('page', { page });
+      return res.render('page', { page });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
@@ -102,20 +99,19 @@ class SearchController {
         return res.json([]);
       }
 
-      const searchService = new SearchService();
-      const suggestions = await searchService.getSuggestions(query);
+      const suggestions = await this.searchService.getSuggestions(query);
 
-      res.json(suggestions);
+      return res.json(suggestions);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 
   async searchImages(req, res, next) {
     try {
-      const { query, page, sourceId } = validateSearch(req.query) || {};
+      const searchData = validateSearch(req.query);
 
-      if (!query) {
+      if (!searchData) {
         return res.json({
           hits: [],
           found: 0,
@@ -123,14 +119,18 @@ class SearchController {
         });
       }
 
-      const searchService = new SearchService();
-      const results = await searchService.searchImages(query, page, sourceId);
+      const { query, page, sourceId } = searchData;
+      const results = await this.searchService.searchImages(query, page, sourceId);
 
-      res.json(results);
+      return res.json(results);
     } catch (error) {
-      next(error);
+      return next(error);
     }
   }
 }
 
-module.exports = new SearchController();
+const searchController = new SearchController();
+
+module.exports = searchController;
+module.exports.SearchController = SearchController;
+module.exports.RESULTS_PER_PAGE = RESULTS_PER_PAGE;
