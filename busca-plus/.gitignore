@@ -1,4 +1,5 @@
 # Dependencies das apps
+node_modules/
 busca-plus-search/node_modules/
 busca-plus-crawler/node_modules/
 

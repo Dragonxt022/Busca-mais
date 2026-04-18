@@ -3,6 +3,7 @@ const router = express.Router();
 const models = require('../../../models');
 const { Op } = require('sequelize');
 const indexer = require('../../../libs/indexer');
+const aiSettingsService = require('../../../services/ai-settings.service');
 
 const { Page, Source, CrawlJob, SearchLog } = models;
 
@@ -84,6 +85,26 @@ router.get('/sources', async (req, res) => {
   }
 });
 
+router.get('/sources/:id', async (req, res) => {
+  try {
+    const source = await Source.findByPk(req.params.id);
+    if (!source) {
+      return res.status(404).send('Fonte nao encontrada');
+    }
+
+    res.render('admin/layout', {
+      title: 'Editar Fonte',
+      currentPage: 'sources',
+      partial: 'source-edit',
+      data: source.toJSON(),
+      stats: null,
+      pagination: null
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar fonte: ' + error.message);
+  }
+});
+
 router.get('/pages', async (req, res) => {
   try {
     const { page = 1, limit = 50, sourceId, hasError, search } = req.query;
@@ -116,6 +137,92 @@ router.get('/pages', async (req, res) => {
     });
   } catch (error) {
     res.status(500).send('Erro ao carregar páginas: ' + error.message);
+  }
+});
+
+router.get('/pages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const type = req.query.type;
+    const crawlerUrl = process.env.CRAWLER_API_URL || `http://localhost:${process.env.PORT || 3001}`;
+
+    let data = {};
+    let detailType = 'page';
+
+    if (type === 'catalog') {
+      const { CatalogDocument, CatalogSource, Page } = models;
+      const document = await CatalogDocument.findByPk(id, {
+        include: [{ model: CatalogSource, as: 'source' }]
+      });
+
+      if (!document) {
+        return res.status(404).send('Documento não encontrado');
+      }
+
+      let pageImages = [];
+      if (document.pagina_origem) {
+        const sourcePage = await Page.findByPk(document.pagina_origem);
+        if (sourcePage && sourcePage.images) {
+          const images = typeof sourcePage.images === 'string' 
+            ? JSON.parse(sourcePage.images) 
+            : sourcePage.images;
+          pageImages = images.map(img => ({
+            ...img,
+            url: img.originalUrl || img.src || (img.localPath ? `${crawlerUrl}/${img.localPath}` : null),
+            thumbnailUrl: img.thumbnailPath ? `${crawlerUrl}/${img.thumbnailPath}` : null,
+          }));
+        }
+      }
+
+      data = {
+        ...document.toJSON(),
+        sourcePage: document.pagina_origem || null,
+        pageImages,
+        isCatalogDocument: true,
+        sourceName: document.source?.name || '',
+        sourceId: document.source_id,
+      };
+      detailType = 'catalog';
+    } else {
+      const pageData = await Page.findByPk(id, {
+        include: [{ model: Source, as: 'source' }]
+      });
+
+      if (!pageData) {
+        return res.status(404).send('Página não encontrada');
+      }
+
+      let screenshotUrl = '';
+      if (pageData.screenshot_path) {
+        if (pageData.screenshot_path.startsWith('http')) {
+          screenshotUrl = pageData.screenshot_path;
+        } else {
+          const filename = pageData.screenshot_path.split('/').pop();
+          screenshotUrl = `${crawlerUrl}/screenshots/${filename}`;
+        }
+      }
+
+      let domain = '';
+      try {
+        domain = new URL(pageData.url).hostname;
+      } catch {}
+
+      data = {
+        ...pageData.toJSON(),
+        screenshotUrl,
+        domain,
+        isCatalogDocument: false,
+      };
+    }
+
+    res.render('admin/partials/pages/detail', {
+      layout: false,
+      detail: data,
+      detailType,
+      backUrl: type === 'catalog' ? `/admin/catalog/${data.sourceId}/documents` : '/admin/pages'
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar página: ' + error.message);
   }
 });
 
@@ -205,6 +312,21 @@ router.get('/searches', async (req, res) => {
     });
   } catch (error) {
     res.status(500).send('Erro ao carregar buscas: ' + error.message);
+  }
+});
+
+router.get('/ai-tools', async (req, res) => {
+  try {
+    res.render('admin/layout', {
+      title: 'Ferramentas de IA',
+      currentPage: 'ai-tools',
+      partial: 'ai-tools',
+      data: aiSettingsService.getSettings(),
+      stats: null,
+      pagination: null
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar configuracoes de IA: ' + error.message);
   }
 });
 

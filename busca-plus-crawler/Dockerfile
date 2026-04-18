@@ -2,6 +2,7 @@ FROM node:20-alpine
 
 # Install Playwright dependencies
 RUN apk add --no-cache \
+    antiword \
     chromium \
     nss \
     freetype \

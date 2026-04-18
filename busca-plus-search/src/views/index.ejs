@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/search.css">
 </head>
-<body>
+<body class="<%= !hasQuery ? 'home-landing' : '' %>">
   <% if (!hasQuery) { %>
     <div class="header">
       <a href="/" class="logo">Busca<span>+</span></a>
@@ -70,6 +70,36 @@
       <% }) %>
     </nav>
 
+    <%
+      const aiReportEnabled = !aiFeatures || (aiFeatures.enabled !== false && aiFeatures.features && aiFeatures.features.searchReport !== false);
+    %>
+    <% if (hasQuery && results && results.length > 0 && aiReportEnabled) { %>
+    <div class="ai-report-section" id="aiReportSection" data-query="<%= query %>">
+      <div class="ai-report-loading" id="aiReportLoading">
+        <div class="ai-report-spinner"></div>
+        <div class="ai-report-text">
+          <span class="ai-report-label">Gerando relatorio com IA</span>
+          <span class="ai-report-sublabel">Analisando os <%= results.found %> resultados...</span>
+        </div>
+      </div>
+      <div class="ai-report-content" id="aiReportContent" hidden>
+        <div class="ai-report-header">
+          <div class="ai-report-icon">
+            <span class="material-icons">auto_awesome</span>
+          </div>
+          <div class="ai-report-title">
+            <h3>Resumo da Busca</h3>
+            <span class="ai-report-meta" id="aiReportMeta"></span>
+          </div>
+          <button type="button" class="ai-report-close" id="aiReportClose" aria-label="Fechar">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="ai-report-body" id="aiReportBody"></div>
+      </div>
+    </div>
+    <% } %>
+
     <div class="main-content">
       <% if (tab === 'images') { %>
         <div class="results-column results-column-full">
@@ -100,34 +130,115 @@
       <% } else { %>
         <div class="results-column">
           <div class="stats-line"><%= statsLabel %></div>
-          <% if (results && results.length > 0) { %>
-            <% results.forEach((result) => { %>
-              <div class="result-card">
+          <% if (typeof sponsors !== 'undefined' && sponsors && sponsors.length > 0) { %>
+            <% sponsors.forEach(function(s) { %>
+              <div class="result-card result-card-sponsored">
+                <div class="result-meta-header">
+                  <span class="result-badge result-badge-sponsored">
+                    <span class="material-icons" style="font-size:0.85rem;vertical-align:-2px">campaign</span>
+                    Patrocinado
+                  </span>
+                  <% if (s.state || s.city) { %>
+                    <span class="result-source"><%= [s.city, s.state].filter(Boolean).join(' — ') %></span>
+                  <% } %>
+                </div>
+                <h3 class="result-title">
+                  <a href="<%= s.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= s.id %>">
+                    <%= s.name %>
+                  </a>
+                </h3>
                 <div class="result-url">
                   <span class="breadcrumb">
                     <i class="material-icons breadcrumb-icon">language</i>
-                    <%= result.url %>
+                    <%= s.url %>
+                  </span>
+                </div>
+                <% if (s.description) { %>
+                  <p class="result-description"><%= s.description %></p>
+                <% } %>
+              </div>
+            <% }); %>
+          <% } %>
+
+          <% if (results && results.length > 0) { %>
+            <% results.forEach((result) => { %>
+              <%
+                const isCatalogDocument = result.recordType === 'catalog_document';
+                const detailHref = result.detailUrl || result.url;
+                const resultHref = result.openUrl || result.downloadUrl || result.url;
+                const resultTitle = isCatalogDocument
+                  ? [result.documentType, result.documentNumber].filter(Boolean).join(' ') || result.title
+                  : result.title;
+                const resultSummary = result.summary || result.description || result.content || 'Sem descricao disponivel';
+                const openLabel = isCatalogDocument ? 'Abrir arquivo' : 'Abrir pagina';
+                const openIcon = isCatalogDocument
+                  ? (['doc', 'docx'].includes(String(result.fileExtension || '').toLowerCase()) ? 'article' : 'picture_as_pdf')
+                  : 'open_in_new';
+                const sourceHref = result.sourceLinkUrl || result.sourceUrl || result.url;
+              %>
+              <div class="result-card">
+                <div class="result-meta-header">
+                  <% if (isCatalogDocument) { %>
+                    <span class="result-badge">Documento catalogado</span>
+                  <% } else { %>
+                    <span class="result-badge result-badge-neutral">Pagina indexada</span>
+                  <% } %>
+                  <% if (result.sourceName) { %>
+                    <span class="result-source"><%= result.sourceName %></span>
+                  <% } %>
+                  <% if (result.fileExtension) { %>
+                    <span class="result-format"><%= String(result.fileExtension).toUpperCase() %></span>
+                  <% } %>
+                </div>
+                <div class="result-url">
+                  <span class="breadcrumb">
+                    <i class="material-icons breadcrumb-icon"><%= isCatalogDocument ? 'description' : 'language' %></i>
+                    <%= resultHref %>
                   </span>
                 </div>
                 <h3 class="result-title">
-                  <a href="<%= result.url %>" target="_blank" rel="noopener noreferrer">
+                  <a href="<%= detailHref %>">
                     <% if (result.highlights && result.highlights.title) { %>
                       <%- result.highlights.title %>
                     <% } else { %>
-                      <%= result.title %>
+                      <%= resultTitle %>
                     <% } %>
                   </a>
                 </h3>
-                <p class="result-description">
-                  <% if (result.highlights && result.highlights.content && result.highlights.content.length > 0) { %>
-                    <% result.highlights.content.forEach((snippet, index) => { %>
-                      <% if (index > 0) { %>... <% } %>
-                      <%- snippet %>
-                    <% }) %>
+                <% if (isCatalogDocument) { %>
+                  <div class="result-catalog-meta">
+                    <% if (result.documentType) { %><span><strong>Tipo:</strong> <%= result.documentType %></span><% } %>
+                    <% if (result.documentNumber) { %><span><strong>Numero:</strong> <%= result.documentNumber %></span><% } %>
+                    <% if (result.documentDate) { %><span><strong>Documento:</strong> <%= result.documentDate %></span><% } %>
+                    <% if (result.publicationDate) { %><span><strong>Publicacao:</strong> <%= result.publicationDate %></span><% } %>
+                  </div>
+                <% } else { %>
+                  <div class="result-catalog-meta">
+                    <% if (result.domain) { %><span><strong>Dominio:</strong> <%= result.domain %></span><% } %>
+                    <% if (result.crawledAt) { %><span><strong>Indexado:</strong> <%= new Date(result.crawledAt).toLocaleDateString('pt-BR') %></span><% } %>
+                  </div>
+                <% } %>
+                <p class="result-description <%= isCatalogDocument ? 'result-description-catalog' : '' %>">
+                  <% if (result.matchSnippetHtml) { %>
+                    <%- result.matchSnippetHtml %>
                   <% } else { %>
-                    <%= result.description ? result.description.substring(0, 200) + '...' : 'Sem descricao disponivel' %>
+                    <%= resultSummary.substring(0, 240) %><%= resultSummary.length > 240 ? '...' : '' %>
                   <% } %>
                 </p>
+                <div class="result-actions">
+                  <a href="<%= detailHref %>" class="result-action-link">
+                    <span class="material-icons">description</span>
+                    Ver detalhes
+                  </a>
+                  <a href="<%= resultHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link">
+                    <span class="material-icons"><%= openIcon %></span>
+                    <%= openLabel %>
+                  </a>
+                  <a href="<%= sourceHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link muted-link">
+                    <span class="material-icons">travel_explore</span>
+                    Ver fonte
+                  </a>
+                </div>
               </div>
             <% }) %>
           <% } else { %>
@@ -136,28 +247,92 @@
         </div>
 
         <% if (sidebar) { %>
+          <%
+            const sidebarSummary = sidebar.summary || { totalHits, sourceCount: 0, catalogCount: 0, pageCount: 0 };
+            const featuredResult = sidebar.featuredResult || null;
+            const topSources = sidebar.topSources || [];
+            const documentHighlights = sidebar.documentHighlights || [];
+            const queryIdeas = sidebar.queryIdeas || [];
+          %>
           <aside class="side-column">
             <div class="side-card">
-              <h4>Pessoas tambem pesquisam</h4>
-              <div class="people-list">
-                <% sidebar.peopleAlsoSearch.forEach((item) => { %>
-                  <a href="<%= item.href %>" class="people-item"><%= item.label %></a>
-                <% }) %>
+              <h4>Panorama da busca</h4>
+              <div class="search-summary-grid">
+                <div class="summary-stat">
+                  <strong><%= sidebarSummary.totalHits %></strong>
+                  <span>resultados</span>
+                </div>
+                <div class="summary-stat">
+                  <strong><%= sidebarSummary.sourceCount %></strong>
+                  <span>fontes</span>
+                </div>
+                <div class="summary-stat">
+                  <strong><%= sidebarSummary.catalogCount %></strong>
+                  <span>catalogados</span>
+                </div>
+                <div class="summary-stat">
+                  <strong><%= sidebarSummary.pageCount %></strong>
+                  <span>paginas</span>
+                </div>
               </div>
             </div>
-            <div class="side-card">
-              <h4>Pesquisas relacionadas</h4>
-              <ul class="related-list">
-                <% sidebar.relatedSearches.forEach((item) => { %>
-                  <li>
-                    <a href="<%= item.href %>">
-                      <i class="material-icons">trending_neutral</i>
-                      <%= item.label %>
+            <% if (featuredResult) { %>
+              <div class="side-card side-card-featured">
+                <h4>Destaque desta busca</h4>
+                <a href="<%= featuredResult.detailUrl || featuredResult.openUrl || '#' %>" class="featured-result-link">
+                  <strong><%= featuredResult.title || 'Resultado em destaque' %></strong>
+                  <span><%= featuredResult.sourceName || 'Origem desconhecida' %></span>
+                  <p><%= featuredResult.snippet || 'Abra este resultado para ver os detalhes completos.' %></p>
+                </a>
+                <div class="featured-actions">
+                  <a href="<%= featuredResult.detailUrl || featuredResult.openUrl || '#' %>">Ver detalhes</a>
+                  <a href="<%= featuredResult.openUrl || featuredResult.detailUrl || '#' %>" target="_blank" rel="noopener noreferrer">
+                    <%= featuredResult.isCatalogDocument ? 'Abrir arquivo' : 'Abrir pagina' %>
+                  </a>
+                </div>
+              </div>
+            <% } %>
+            <% if (topSources.length > 0) { %>
+              <div class="side-card">
+                <h4>Filtrar por fonte</h4>
+                <div class="side-list">
+                  <% topSources.forEach((item) => { %>
+                    <a href="<%= item.href %>" class="side-list-item <%= item.active ? 'active' : '' %>">
+                      <span><%= item.label %></span>
+                      <strong><%= item.count %></strong>
                     </a>
-                  </li>
-                <% }) %>
-              </ul>
-            </div>
+                  <% }) %>
+                </div>
+              </div>
+            <% } %>
+            <% if (documentHighlights.length > 0) { %>
+              <div class="side-card">
+                <h4>Tipos em evidencia</h4>
+                <div class="people-list">
+                  <% documentHighlights.forEach((item) => { %>
+                    <a href="<%= item.href %>" class="people-item">
+                      <%= item.label %>
+                      <small><%= item.count %></small>
+                    </a>
+                  <% }) %>
+                </div>
+              </div>
+            <% } %>
+            <% if (queryIdeas.length > 0) { %>
+              <div class="side-card">
+                <h4>Explorar termos proximos</h4>
+                <ul class="related-list">
+                  <% queryIdeas.forEach((item) => { %>
+                    <li>
+                      <a href="<%= item.href %>">
+                        <i class="material-icons">manage_search</i>
+                        <%= item.label %>
+                      </a>
+                    </li>
+                  <% }) %>
+                </ul>
+              </div>
+            <% } %>
           </aside>
         <% } %>
       <% } %>
@@ -201,6 +376,16 @@
     </div>
   </div>
 
+  <%- include('./partials/location-modal') %>
   <script src="/js/search-ui.js"></script>
+  <script src="/js/location-ui.js"></script>
+  <script>
+    document.querySelectorAll('a[data-sponsor-id]').forEach(function(link) {
+      link.addEventListener('click', function() {
+        var id = link.getAttribute('data-sponsor-id');
+        navigator.sendBeacon('/api/sponsors/' + id + '/click');
+      });
+    });
+  </script>
 </body>
 </html>

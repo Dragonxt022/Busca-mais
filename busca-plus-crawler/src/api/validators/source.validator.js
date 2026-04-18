@@ -42,6 +42,9 @@ const validateSource = (data) => {
     throw errorTypes.VALIDATION(errors.join(', '));
   }
 
+  const VALID_UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  const state = String(data.state || '').toUpperCase().trim();
+
   return {
     name: data.name.trim(),
     base_url: data.url || data.base_url,
@@ -49,8 +52,14 @@ const validateSource = (data) => {
     type: data.type || 'website',
     crawl_depth: data.crawl_depth || 3,
     follow_internal_links: !!data.followInternalLinks || !!data.follow_internal_links,
-    take_screenshot: data.takeScreenshot !== false && data.take_screenshot !== false,
+    download_images: data.downloadImages === true || data.download_images === true,
+    take_screenshots: data.takeScreenshots === true || data.take_screenshots === true,
+    delay_between_requests: data.delayBetweenRequests || data.delay_between_requests || 1000,
+    user_agent: data.userAgent || data.user_agent || null,
+    is_active: data.isActive !== undefined ? data.isActive : (data.status !== 'inactive'),
     schedule: data.schedule || null,
+    state: VALID_UF.includes(state) ? state : null,
+    city: String(data.city || '').trim() || null,
   };
 };
 

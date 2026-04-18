@@ -23,15 +23,19 @@ const validateSearch = (query) => {
     query: sanitized,
     page: Math.max(1, parseInt(query.page, 10) || 1),
     sourceId: query.source || null,
+    state: query.state || null,
+    city: query.city || null,
   };
 };
 
 const validatePageId = (id) => {
-  if (!id || Number.isNaN(parseInt(id, 10))) {
+  const normalized = String(id || '').trim();
+
+  if (!normalized || !/^(\d+|catalog-\d+)$/i.test(normalized)) {
     throw errorTypes.NOT_FOUND('Pagina');
   }
 
-  return parseInt(id, 10);
+  return normalized;
 };
 
 const validateSuggestion = (query) => {

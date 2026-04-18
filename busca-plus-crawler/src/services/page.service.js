@@ -109,7 +109,7 @@ class PageService {
     await crawlQueue.add(
       'crawl-page',
       { pageId: page.id, url: page.url, sourceId: page.source_id },
-      { jobId: `crawl-${page.id}` }
+      { jobId: `crawl-${page.id}-${Date.now()}` }
     );
 
     await page.update({ status: 'queued' });

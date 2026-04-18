@@ -13,4 +13,10 @@ module.exports = {
     apiUrl: env.crawler.apiUrl,
     externalUrl: env.crawler.externalUrl,
   },
+  ai: {
+    provider: env.ai.provider,
+    summaryMaxCharacters: env.ai.summaryMaxCharacters,
+    google: env.ai.google,
+    ollama: env.ai.ollama,
+  },
 };

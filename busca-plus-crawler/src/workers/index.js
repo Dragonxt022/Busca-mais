@@ -6,9 +6,11 @@ const { sequelize } = require('../models');
 const config = require('../config');
 const CrawlWorker = require('./crawl.worker');
 const scheduler = require('../libs/scheduler');
+const { ensurePlaywrightChromium } = require('../libs/playwright-utils');
 
 async function startWorker() {
   try {
+    ensurePlaywrightChromium();
     await sequelize.authenticate();
     logger.info('Worker: Database connection established');
 

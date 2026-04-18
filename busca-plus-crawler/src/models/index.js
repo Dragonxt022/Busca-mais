@@ -3,6 +3,7 @@ const Source = require('../modules/sources/source.model');
 const Page = require('../modules/pages/page.model');
 const CrawlJob = require('../modules/jobs/crawl-job.model');
 const SearchLog = require('../modules/search-logs/search-log.model');
+const Sponsor = require('./sponsor.model');
 const CatalogSourceFactory = require('../modules/transparency/models/catalog-source.model');
 const CatalogRunFactory = require('../modules/transparency/models/catalog-run.model');
 const CatalogDocumentFactory = require('../modules/transparency/models/catalog-document.model');
@@ -28,12 +29,14 @@ CatalogSource.hasMany(CatalogDocument, { foreignKey: 'source_id', as: 'documents
 CatalogRun.belongsTo(CatalogSource, { foreignKey: 'source_id', as: 'source' });
 CatalogDocument.belongsTo(CatalogSource, { foreignKey: 'source_id', as: 'source' });
 
+
 module.exports = {
   sequelize,
   Source,
   Page,
   CrawlJob,
   SearchLog,
+  Sponsor,
   CatalogSource,
   CatalogRun,
   CatalogDocument,

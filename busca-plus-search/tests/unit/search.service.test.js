@@ -64,3 +64,43 @@ test('SearchService.formatImageHit normalizes image payload', () => {
   assert.equal(payload.score, 77);
   assert.equal(payload.sourceName, 'Fonte');
 });
+
+test('SearchService.generateSummary prefers complete sentences over raw truncation', () => {
+  const service = new SearchService();
+  const summary = service.generateSummary(
+    'A Prefeitura de Cujubim realizou uma reuniao com a Policia Militar para definir medidas de seguranca nas escolas. Durante o encontro, foram apresentados protocolos preventivos e cronogramas de visitas tecnicas. Menu principal noticias contato.'
+  );
+
+  assert.match(summary, /A Prefeitura de Cujubim realizou uma reuniao/);
+  assert.doesNotMatch(summary, /Menu principal/);
+});
+
+test('SearchService.formatHit uses internal detail page for catalog and regular pages', () => {
+  const service = new SearchService();
+
+  const pageHit = service.formatHit({
+    document: {
+      id: '123',
+      url: 'https://example.com/noticia',
+      title: 'Noticia',
+      content: 'Conteudo',
+      record_type: 'page',
+    },
+  }, 'seguranca escolar');
+
+  const catalogHit = service.formatHit({
+    document: {
+      id: 'catalog-55',
+      url: 'https://example.com/arquivo.pdf',
+      title: 'Lei 55',
+      description: 'Descricao',
+      record_type: 'catalog_document',
+      download_url: 'https://example.com/arquivo.pdf',
+    },
+  }, 'lei');
+
+  assert.match(pageHit.detailUrl, /^\/page\/123\?q=seguranca\+escolar&focus=/);
+  assert.match(catalogHit.detailUrl, /^\/page\/catalog-55\?q=lei&focus=/);
+  assert.equal(pageHit.matchSnippetHtml, 'Conteudo');
+  assert.equal(pageHit.focusText, 'Conteudo');
+});

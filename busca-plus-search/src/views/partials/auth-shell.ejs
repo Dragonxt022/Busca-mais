@@ -1,0 +1,106 @@
+<div class="auth-overlay" data-auth-overlay="true" hidden aria-hidden="true">
+  <div class="auth-backdrop"></div>
+  <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <button type="button" class="auth-close" data-auth-close="true" aria-label="Fechar">
+      <span class="material-icons">close</span>
+    </button>
+
+    <section class="auth-panel auth-panel-active" data-auth-panel="login">
+      <div class="auth-intro">
+        <span class="auth-kicker">Experiência personalizada</span>
+        <h2 id="authModalTitle">Entrar no Busca+</h2>
+        <p>Salve preferências, acompanhe buscas relevantes e prepare sua conta para alertas inteligentes no futuro.</p>
+      </div>
+
+      <form class="auth-form" data-auth-form="login">
+        <label>
+          <span>E-mail</span>
+          <input type="email" name="email" placeholder="voce@exemplo.com">
+        </label>
+        <label>
+          <span>Senha</span>
+          <input type="password" name="password" placeholder="Sua senha">
+        </label>
+        <button type="submit" class="auth-submit">Entrar</button>
+      </form>
+
+      <div class="auth-links">
+        <button type="button" data-auth-switch="recover">Esqueci minha senha</button>
+        <button type="button" data-auth-switch="register">Criar conta</button>
+      </div>
+    </section>
+
+    <section class="auth-panel" data-auth-panel="register" hidden>
+      <div class="auth-intro">
+        <span class="auth-kicker">Crie sua conta</span>
+        <h2>Comece agora</h2>
+        <p>Tenha histórico, perfil personalizado e base pronta para notificações de menções e monitoramentos regionais.</p>
+      </div>
+
+      <form class="auth-form" data-auth-form="register">
+        <label>
+          <span>Nome completo</span>
+          <input type="text" name="name" placeholder="Seu nome" required>
+        </label>
+        <label>
+          <span>E-mail</span>
+          <input type="email" name="email" placeholder="voce@exemplo.com" required>
+        </label>
+        <label>
+          <span>Senha</span>
+          <input type="password" name="password" placeholder="Crie uma senha" required minlength="6">
+        </label>
+        <label>
+          <span>Cidade ou região</span>
+          <input type="text" name="region" placeholder="Ex.: Cujubim / Rondônia">
+        </label>
+        <button type="submit" class="auth-submit">Criar conta</button>
+      </form>
+
+      <div class="auth-links">
+        <button type="button" data-auth-switch="login">Já tenho conta</button>
+      </div>
+    </section>
+
+    <section class="auth-panel" data-auth-panel="recover" hidden>
+      <div class="auth-intro">
+        <span class="auth-kicker">Recuperar acesso</span>
+        <h2>Redefinir senha</h2>
+        <p>Informe o e-mail da conta. Nesta versão inicial vamos permitir redefinir a senha localmente.</p>
+      </div>
+
+      <form class="auth-form" data-auth-form="recover">
+        <label>
+          <span>E-mail</span>
+          <input type="email" name="email" placeholder="voce@exemplo.com" required>
+        </label>
+        <label>
+          <span>Nova senha</span>
+          <input type="password" name="password" placeholder="Nova senha" required minlength="6">
+        </label>
+        <button type="submit" class="auth-submit">Atualizar senha</button>
+      </form>
+
+      <div class="auth-links">
+        <button type="button" data-auth-switch="login">Voltar para login</button>
+      </div>
+    </section>
+
+    <p class="auth-feedback" data-auth-feedback="true" hidden></p>
+  </div>
+</div>
+
+<div class="growth-prompt" data-growth-prompt="true" hidden>
+  <div class="growth-card">
+    <button type="button" class="growth-close" data-growth-dismiss="true" aria-label="Fechar sugestão">
+      <span class="material-icons">close</span>
+    </button>
+    <span class="auth-kicker">Buscas mais inteligentes</span>
+    <h3>Crie sua conta para ter uma experiência personalizada</h3>
+    <p>Salve seus temas, monte um perfil próprio e prepare sua conta para alertas de menções ao seu nome em documentos e buscas regionais.</p>
+    <div class="growth-actions">
+      <button type="button" class="growth-primary" data-growth-action="register">Criar conta</button>
+      <button type="button" class="growth-secondary" data-growth-action="login">Já tenho conta</button>
+    </div>
+  </div>
+</div>

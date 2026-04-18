@@ -1,0 +1,316 @@
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-pencil-square me-2"></i>Editar Fonte</h1>
+  <div class="btn-toolbar mb-2 mb-md-0">
+    <a href="/admin/sources" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i> Voltar
+    </a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informações da Fonte</h5>
+      </div>
+      <div class="card-body">
+        <form id="editSourceForm">
+          <input type="hidden" name="id" value="<%= data.id %>">
+          
+          <div class="mb-3">
+            <label class="form-label">Nome</label>
+            <input type="text" class="form-control" name="name" value="<%= data.name %>" required>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">URL Base</label>
+            <input type="url" class="form-control" name="base_url" value="<%= data.base_url %>" required>
+            <small class="text-muted">URL principal do site a ser rastreado</small>
+          </div>
+          
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Estado <span class="text-danger">*</span></label>
+              <select class="form-select" name="state" id="sourceState" required>
+                <option value="">Selecione o Estado</option>
+                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
+                  <option value="<%= uf %>" <%= data.state === uf ? 'selected' : '' %>><%= uf %> — <%= nome %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Município <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="city" value="<%= data.city || '' %>" placeholder="Ex: Cujubim" required>
+              <small class="text-muted">Cidade principal da fonte de conteúdo</small>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Categoria</label>
+            <select class="form-select" name="category">
+              <option value="general" <%= data.category === 'general' ? 'selected' : '' %>>Geral</option>
+              <option value="news" <%= data.category === 'news' ? 'selected' : '' %>>Notícias</option>
+              <option value="blog" <%= data.category === 'blog' ? 'selected' : '' %>>Blog</option>
+              <option value="government" <%= data.category === 'government' ? 'selected' : '' %>>Governo</option>
+              <option value="documentation" <%= data.category === 'documentation' ? 'selected' : '' %>>Documentação</option>
+              <option value="other" <%= data.category === 'other' ? 'selected' : '' %>>Outro</option>
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Profundidade de Coleta</label>
+            <input type="number" class="form-control" name="crawl_depth" value="<%= data.crawl_depth || 3 %>" min="1" max="5">
+            <small class="text-muted">Quantos níveis de links seguir (1-5)</small>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Tempo entre Coletas (ms)</label>
+            <input type="number" class="form-control" name="delay_between_requests" value="<%= data.delay_between_requests || 1000 %>" min="100">
+            <small class="text-muted">Aguardar este tempo entre cada requisição</small>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">User Agent</label>
+            <input type="text" class="form-control" name="userAgent" value="<%= data.user_agent || '' %>" placeholder="Deixe vazio para usar o padrão">
+            <small class="text-muted">User agent personalizado (opcional)</small>
+          </div>
+          
+          <hr>
+          
+          <h6 class="mb-3">Opções</h6>
+          
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" name="is_active" id="isActive" value="true" <%= data.is_active ? 'checked' : '' %>>
+              <label class="form-check-label" for="isActive">Fonte Ativa</label>
+            </div>
+            <small class="text-muted d-block">Fontes inativas não são rastreadas automaticamente</small>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" name="follow_internal_links" id="followInternal" value="true" <%= data.follow_internal_links !== false ? 'checked' : '' %>>
+              <label class="form-check-label" for="followInternal">Seguir Links Internos</label>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" name="download_images" id="downloadImages" value="true" <%= data.download_images !== false ? 'checked' : '' %>>
+              <label class="form-check-label" for="downloadImages">Baixar Imagens</label>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input type="checkbox" class="form-check-input" name="take_screenshots" id="takeScreenshots" value="true" <%= data.take_screenshots ? 'checked' : '' %>>
+              <label class="form-check-label" for="takeScreenshots">Capturar Screenshots</label>
+            </div>
+          </div>
+          
+          <hr>
+          
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-danger" onclick="deleteSource('<%= data.id %>')">
+              <i class="bi bi-trash me-1"></i> Excluir Fonte
+            </button>
+            <div>
+              <a href="/admin/sources" class="btn btn-secondary me-2">Cancelar</a>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-lg-4">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Estatísticas</h5>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span>Páginas:</span>
+          <strong id="pageCount">-</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span>Indexadas:</span>
+          <strong id="indexedCount">-</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span>Com erros:</span>
+          <strong id="errorCount">-</strong>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between mb-2">
+          <span>Última coleta:</span>
+          <strong id="lastCrawl">-</strong>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span>Criado em:</span>
+          <strong><%= data.created_at ? new Date(data.created_at).toLocaleDateString('pt-BR') : '-' %></strong>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Agendamento</h5>
+      </div>
+      <div class="card-body">
+        <div id="currentSchedule">
+          <% if (data.schedule) { %>
+            <div class="alert alert-info">
+              <i class="bi bi-calendar-check me-1"></i>
+              Agendado: <code><%= data.schedule %></code>
+            </div>
+          <% } else { %>
+            <div class="alert alert-secondary">
+              <i class="bi bi-calendar-x me-1"></i>
+              Sem agendamento
+            </div>
+          <% } %>
+        </div>
+        <button type="button" class="btn btn-outline-warning w-100" onclick="openScheduleModal('<%= data.id %>', '<%= data.schedule || '' %>')">
+          <i class="bi bi-calendar-plus me-1"></i> Gerenciar Agendamento
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agendar Coleta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="scheduleForm">
+        <div class="modal-body">
+          <input type="hidden" name="sourceId" id="scheduleSourceId">
+          <div class="mb-3">
+            <label class="form-label">Expressão Cron</label>
+            <input type="text" class="form-control" name="schedule" id="scheduleCron" placeholder="0 */6 * * *" required>
+            <small class="text-muted">Formato: minuto hora dia mês dia_semana</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Predefinições</label>
+            <div class="btn-group w-100">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */6 * * *')">6h</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */12 * * *')">12h</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * *')">Diário</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * 0')">Semanal</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger me-auto" onclick="removeSchedule()">Remover</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('editSourceForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData);
+  
+  data.isActive = form.querySelector('[name=is_active]').checked;
+  data.followInternalLinks = form.querySelector('[name=follow_internal_links]').checked;
+  data.downloadImages = form.querySelector('[name=download_images]').checked;
+  data.takeScreenshots = form.querySelector('[name=take_screenshots]').checked;
+
+  data.crawlDepth = parseInt(data.crawl_depth) || 3;
+  data.delayBetweenRequests = parseInt(data.delay_between_requests) || 1000;
+  data.userAgent = form.querySelector('[name=userAgent]').value;
+  data.state = form.querySelector('[name=state]').value;
+  data.city = form.querySelector('[name=city]').value;
+  
+  try {
+    const response = await axios.put('/api/sources/' + data.id, data);
+    alert('Fonte atualizada com sucesso!');
+    location.reload();
+  } catch (error) {
+    alert('Erro: ' + (error.response?.data?.error || error.message));
+  }
+});
+
+async function deleteSource(sourceId) {
+  if (confirm('Tem certeza que deseja excluir esta fonte?\n\nIsso também removerá todas as páginas associadas.')) {
+    if (confirm('Esta ação não pode ser desfeita. Continuar?')) {
+      try {
+        await axios.delete('/api/sources/' + sourceId);
+        alert('Fonte excluída com sucesso!');
+        window.location.href = '/admin/sources';
+      } catch (error) {
+        alert('Erro: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  }
+}
+
+function openScheduleModal(sourceId, currentSchedule) {
+  document.getElementById('scheduleSourceId').value = sourceId;
+  document.getElementById('scheduleCron').value = currentSchedule;
+  new bootstrap.Modal(document.getElementById('scheduleModal')).show();
+}
+
+function setCron(cron) {
+  document.getElementById('scheduleCron').value = cron;
+}
+
+document.getElementById('scheduleForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const sourceId = document.getElementById('scheduleSourceId').value;
+  const schedule = document.getElementById('scheduleCron').value;
+  
+  try {
+    await axios.post('/api/scheduler/sources/' + sourceId + '/schedule', { schedule });
+    bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+    location.reload();
+  } catch (error) {
+    alert('Erro: ' + (error.response?.data?.error || error.message));
+  }
+});
+
+async function removeSchedule() {
+  const sourceId = document.getElementById('scheduleSourceId').value;
+  if (confirm('Remover agendamento desta fonte?')) {
+    try {
+      await axios.delete('/api/scheduler/sources/' + sourceId + '/schedule');
+      bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+      location.reload();
+    } catch (error) {
+      alert('Erro: ' + (error.response?.data?.error || error.message));
+    }
+  }
+}
+
+async function loadStats() {
+  try {
+    const response = await axios.get('/api/sources/<%= data.id %>/stats');
+    const stats = response.data;
+    
+    document.getElementById('pageCount').textContent = stats.totalPages || 0;
+    document.getElementById('indexedCount').textContent = stats.indexedPages || 0;
+    document.getElementById('errorCount').textContent = stats.pagesWithErrors || 0;
+    
+    if (stats.lastCrawl) {
+      document.getElementById('lastCrawl').textContent = new Date(stats.lastCrawl).toLocaleString('pt-BR');
+    }
+  } catch (error) {
+    console.error('Erro ao carregar estatísticas:', error);
+  }
+}
+
+loadStats();
+</script>

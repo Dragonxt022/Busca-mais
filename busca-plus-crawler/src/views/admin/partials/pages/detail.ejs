@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= detail.title || detail.tipo || 'Detalhes' %> - Busca+</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    .detail-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+    .screenshot-container {
+      background: #f8f9fa;
+      border-radius: 8px;
+      overflow: hidden;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .screenshot-container img {
+      max-width: 100%;
+      max-height: 500px;
+      object-fit: contain;
+    }
+    .screenshot-placeholder {
+      text-align: center;
+      color: #6c757d;
+      padding: 3rem;
+    }
+    .meta-card { margin-bottom: 1rem; }
+    .meta-label { font-weight: 600; color: #6c757d; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-value { font-size: 0.9375rem; }
+    .ementa-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      border-left: 4px solid #1a73e8;
+    }
+    .content-preview {
+      max-height: 400px;
+      overflow-y: auto;
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 0.875rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .breadcrumb { background: transparent; padding: 0; }
+    .images-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.75rem;
+    }
+    .image-item {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+    }
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.2s;
+    }
+    .image-item:hover img { transform: scale(1.05); }
+    .doc-icon { font-size: 2.5rem; color: #dc3545; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="/"><i class="bi bi-search me-2"></i>Busca+</a>
+      <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="<%= backUrl %>"><i class="bi bi-arrow-left me-1"></i>Voltar</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="detail-container">
+    <nav aria-label="breadcrumb" class="breadcrumb mb-4">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/admin">Admin</a></li>
+        <% if (detailType === 'catalog') { %>
+        <li class="breadcrumb-item"><a href="/admin/catalog">Catalogo</a></li>
+        <li class="breadcrumb-item"><a href="<%= backUrl %>"><%= detail.sourceName || 'Documentos' %></a></li>
+        <% } else { %>
+        <li class="breadcrumb-item"><a href="/admin/pages">Paginas</a></li>
+        <% } %>
+        <li class="breadcrumb-item active" aria-current="page">Detalhes</li>
+      </ol>
+    </nav>
+
+    <div class="row">
+      <div class="col-lg-8">
+        <% if (detailType === 'catalog') { %>
+        <div class="card mb-4">
+          <div class="card-header d-flex align-items-center">
+            <i class="bi bi-file-earmark-pdf doc-icon me-3"></i>
+            <div>
+              <h5 class="mb-0"><%= detail.tipo || 'Documento' %></h5>
+              <small class="text-muted"><%= detail.numero_ano || 'Sem numero/ano' %></small>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <% if (detail.data_documento) { %>
+              <div class="col-md-4">
+                <div class="meta-card">
+                  <div class="meta-label">Data do Documento</div>
+                  <div class="meta-value"><%= detail.data_documento %></div>
+                </div>
+              </div>
+              <% } %>
+              <% if (detail.data_publicacao) { %>
+              <div class="col-md-4">
+                <div class="meta-card">
+                  <div class="meta-label">Publicacao</div>
+                  <div class="meta-value"><%= detail.data_publicacao %></div>
+                </div>
+              </div>
+              <% } %>
+              <div class="col-md-4">
+                <div class="meta-card">
+                  <div class="meta-label">Status</div>
+                  <div class="meta-value">
+                    <span class="badge <%= detail.status === 'indexed' ? 'bg-success' : detail.status === 'error' ? 'bg-danger' : 'bg-warning' %>">
+                      <%= detail.status || 'pending' %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <% if (detail.descricao) { %>
+            <div class="meta-card">
+              <div class="meta-label">Descricao</div>
+              <div class="meta-value"><%= detail.descricao %></div>
+            </div>
+            <% } %>
+
+            <% if (detail.ementa) { %>
+            <div class="meta-card">
+              <div class="meta-label">Ementa</div>
+              <div class="ementa-box"><%= detail.ementa %></div>
+            </div>
+            <% } %>
+
+            <% if (detail.metadata_json && detail.metadata_json.last_index_error) { %>
+            <div class="alert alert-danger mt-3">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Erro de Indexacao:</strong>
+              <pre class="mb-0 mt-2 small"><%= detail.metadata_json.last_index_error %></pre>
+            </div>
+            <% } %>
+          </div>
+        </div>
+        <% } else { %>
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Visualizacao</h5>
+            <a href="<%= detail.url %>" target="_blank" class="btn btn-primary btn-sm">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Abrir Site Original
+            </a>
+          </div>
+          <div class="card-body p-0">
+            <div class="screenshot-container">
+              <% if (detail.screenshotUrl) { %>
+                <img src="<%= detail.screenshotUrl %>" alt="Screenshot" onerror="this.outerHTML='<div class=\\'screenshot-placeholder\\'><i class=\\'bi bi-image\\' style=\\'font-size: 3rem;\\'></i><p class=\\'mt-2\\'>Screenshot nao disponivel</p></div>'">
+              <% } else { %>
+                <div class="screenshot-placeholder">
+                  <i class="bi bi-image" style="font-size: 3rem;"></i>
+                  <p class="mt-2 mb-0">Screenshot nao disponivel</p>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <% if (detail.content_text) { %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-card-text me-2"></i>Conteudo Extraido</h5>
+          </div>
+          <div class="card-body">
+            <div class="content-preview"><%= detail.content_text.substring(0, 3000) %><% if (detail.content_text.length > 3000) { %>...[conteudo truncado]<% } %></div>
+          </div>
+        </div>
+        <% } %>
+        <% } %>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacoes</h5>
+          </div>
+          <div class="card-body">
+            <% if (detailType === 'catalog') { %>
+            <div class="meta-card">
+              <div class="meta-label">ID Externo</div>
+              <div class="meta-value font-monospace"><%= detail.external_id || '-' %></div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Fonte</div>
+              <div class="meta-value"><span class="badge bg-secondary"><%= detail.sourceName || '-' %></span></div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Extensao</div>
+              <div class="meta-value"><span class="badge bg-info"><%= detail.extension || 'PDF' %></span></div>
+            </div>
+            <% } else { %>
+            <div class="meta-card">
+              <div class="meta-label">Titulo</div>
+              <div class="meta-value"><%= detail.title || '-' %></div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">URL</div>
+              <div class="meta-value small">
+                <a href="<%= detail.url %>" target="_blank" class="text-break" style="word-break: break-all;">
+                  <%= detail.url %>
+                </a>
+              </div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Dominio</div>
+              <div class="meta-value"><%= detail.domain || '-' %></div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Fonte</div>
+              <div class="meta-value">
+                <% if (detail.source) { %>
+                  <span class="badge bg-secondary"><%= detail.source.name %></span>
+                <% } else { %>
+                  -
+                <% } %>
+              </div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Idioma</div>
+              <div class="meta-value"><%= detail.language || '-' %></div>
+            </div>
+            <% } %>
+
+            <div class="meta-card">
+              <div class="meta-label">Criado em</div>
+              <div class="meta-value">
+                <% if (detail.created_at) { %>
+                  <%= new Date(detail.created_at).toLocaleString('pt-BR') %>
+                <% } else { %>
+                  -
+                <% } %>
+              </div>
+            </div>
+
+            <div class="meta-card">
+              <div class="meta-label">Atualizado em</div>
+              <div class="meta-value">
+                <% if (detail.updated_at) { %>
+                  <%= new Date(detail.updated_at).toLocaleString('pt-BR') %>
+                <% } else { %>
+                  -
+                <% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <% if (detailType === 'catalog') { %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Acoes</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-grid gap-2">
+              <% if (detail.download_url) { %>
+              <a href="<%= detail.download_url %>" target="_blank" class="btn btn-danger">
+                <i class="bi bi-download me-1"></i>Baixar PDF
+              </a>
+              <% } %>
+              <% if (detail.detalhe_url) { %>
+              <a href="<%= detail.detalhe_url %>" target="_blank" class="btn btn-info">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Site Original
+              </a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <% } else { %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Acoes</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-grid gap-2">
+              <a href="<%= detail.url %>" target="_blank" class="btn btn-outline-primary">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Visitar Site
+              </a>
+              <button class="btn btn-outline-secondary" onclick="reindexPage('<%= detail.id %>')">
+                <i class="bi bi-arrow-repeat me-1"></i>Reindexar
+              </button>
+              <% if (detail.source_id) { %>
+              <a href="/admin/pages?sourceId=<%= detail.source_id %>" class="btn btn-outline-dark">
+                <i class="bi bi-list-ul me-1"></i>Ver Paginas da Fonte
+              </a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <% } %>
+
+        <% if (detailType === 'catalog' && detail.pageImages && detail.pageImages.length > 0) { %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-images me-2"></i>Imagens da Pagina (<%= detail.pageImages.length %>)</h5>
+          </div>
+          <div class="card-body">
+            <div class="images-grid">
+              <% detail.pageImages.forEach(function(img, idx) { %>
+                <a href="<%= img.url || img.thumbnailUrl %>" target="_blank" class="image-item" title="Imagem <%= idx + 1 %>">
+                  <img src="<%= img.thumbnailUrl || img.url %>" alt="" onerror="this.src='<%= img.url %>'; this.onerror=null;">
+                </a>
+              <% }); %>
+            </div>
+            <% if (detail.sourcePage) { %>
+            <div class="mt-3">
+              <small class="text-muted">
+                <i class="bi bi-link-45deg me-1"></i>
+                Pagina de origem: 
+                <a href="/admin/pages/<%= detail.sourcePage %>" target="_blank">
+                  Ver detalhes
+                </a>
+              </small>
+            </div>
+            <% } %>
+          </div>
+        </div>
+        <% } %>
+
+        <% if (detailType === 'catalog' && detail.download_url) { %>
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Links</h5>
+          </div>
+          <div class="card-body">
+            <div class="meta-card">
+              <div class="meta-label">URL de Download</div>
+              <div class="meta-value small text-break" style="word-break: break-all;">
+                <a href="<%= detail.download_url %>" target="_blank"><%= detail.download_url %></a>
+              </div>
+            </div>
+            <% if (detail.detalhe_url) { %>
+            <div class="meta-card">
+              <div class="meta-label">URL de Origem</div>
+              <div class="meta-value small text-break" style="word-break: break-all;">
+                <a href="<%= detail.detalhe_url %>" target="_blank"><%= detail.detalhe_url %></a>
+              </div>
+            </div>
+            <% } %>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <% if (detailType !== 'catalog') { %>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    async function reindexPage(pageId) {
+      if (!confirm('Reindexar esta pagina?')) return;
+      try {
+        await axios.post('/api/pages/' + pageId + '/reindex');
+        alert('Pagina reindexada com sucesso!');
+        location.reload();
+      } catch (error) {
+        alert('Erro: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  </script>
+  <% } %>
+</body>
+</html>

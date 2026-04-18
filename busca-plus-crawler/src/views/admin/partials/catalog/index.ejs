@@ -1,13 +1,13 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
-  <h1 class="h2"><i class="bi bi-folder2-open me-2"></i>Catálogo de Documentos</h1>
+  <h1 class="h2"><i class="bi bi-folder2-open me-2"></i>Catalogo de Documentos</h1>
   <div class="btn-group" role="group">
     <form action="/admin/catalog/clear-queue" method="POST" class="d-inline">
-      <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Cancelar todas as execuções em andamento?')">
+      <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Cancelar todas as execucoes em andamento?')">
         <i class="bi bi-x-circle me-1"></i>Limpar Fila
       </button>
     </form>
     <form action="/admin/catalog/reset-all" method="POST" class="d-inline ms-1">
-      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('ATENÇÃO: Isso irá remover todos os documentos catalogados. Continuar?')">
+      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('ATENCAO: Isso ira remover todos os documentos catalogados. Continuar?')">
         <i class="bi bi-trash me-1"></i>Resetar Tudo
       </button>
     </form>
@@ -22,12 +22,22 @@
   </div>
   <% } else if (msg === 'reset_done') { %>
   <div class="alert alert-warning alert-dismissible fade show" role="alert">
-    <i class="bi bi-exclamation-triangle me-2"></i>Catálogo resetado com sucesso!
+    <i class="bi bi-exclamation-triangle me-2"></i>Catalogo resetado com sucesso!
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
   <% } else if (msg === 'run_started') { %>
   <div class="alert alert-info alert-dismissible fade show" role="alert">
-    <i class="bi bi-hourglass-split me-2"></i>Catalogação iniciada em segundo plano...
+    <i class="bi bi-hourglass-split me-2"></i>Catalogacao iniciada em segundo plano...
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  <% } else if (msg === 'index_started') { %>
+  <div class="alert alert-primary alert-dismissible fade show" role="alert">
+    <i class="bi bi-search me-2"></i>Indexacao enfileirada com sucesso...
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  <% } else if (msg === 'resume_started') { %>
+  <div class="alert alert-primary alert-dismissible fade show" role="alert">
+    <i class="bi bi-arrow-repeat me-2"></i>Indexacao retomada a partir do estado salvo...
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
   <% } %>
@@ -37,13 +47,20 @@
 <% if (hasRunningJobs) { %>
 <meta http-equiv="refresh" content="10">
 <div class="alert alert-secondary alert-dismissible fade show" role="alert">
-  <i class="bi bi-arrow-repeat me-2"></i>Atualizando automaticamente (há execuções em andamento)
+  <i class="bi bi-arrow-repeat me-2"></i>Atualizando automaticamente (ha execucoes em andamento)
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <% } %>
 
+<%
+  const statsMap = (documentStats || []).reduce((acc, item) => {
+    acc[item.status] = Number(item.count || 0);
+    return acc;
+  }, {});
+%>
+
 <div class="row g-4 mb-4">
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card stat-card bg-primary bg-gradient text-white">
       <div class="card-body d-flex align-items-center">
         <div class="icon bg-white text-primary me-3">
@@ -56,7 +73,7 @@
       </div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card stat-card bg-success bg-gradient text-white">
       <div class="card-body d-flex align-items-center">
         <div class="icon bg-white text-success me-3">
@@ -69,15 +86,28 @@
       </div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="card stat-card bg-info bg-gradient text-white">
       <div class="card-body d-flex align-items-center">
         <div class="icon bg-white text-info me-3">
-          <i class="bi bi-play-circle"></i>
+          <i class="bi bi-check2-square"></i>
         </div>
         <div>
-          <h3 class="mb-0"><%= runs ? runs.filter(r => r.status === 'running').length : 0 %></h3>
-          <small>Execuções em Andamento</small>
+          <h3 class="mb-0"><%= statsMap.indexed || 0 %></h3>
+          <small>Documentos Indexados</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card bg-warning bg-gradient text-white">
+      <div class="card-body d-flex align-items-center">
+        <div class="icon bg-white text-warning me-3">
+          <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div>
+          <h3 class="mb-0"><%= (statsMap.pending || 0) + (statsMap.error || 0) %></h3>
+          <small>Pendentes para Indexar</small>
         </div>
       </div>
     </div>
@@ -88,7 +118,7 @@
   <div class="col-md-8">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Fontes de Catálogo</h5>
+        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Fontes de Catalogo</h5>
         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newSourceModal">
           <i class="bi bi-plus-lg me-1"></i>Nova Fonte
         </button>
@@ -102,8 +132,8 @@
                 <th>URL</th>
                 <th>Status</th>
                 <th>Docs</th>
-                <th>Última Execução</th>
-                <th>Ações</th>
+                <th>Ultima Execucao</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -120,7 +150,10 @@
                     <td>
                       <strong><%= source.name %></strong>
                       <% if (source.auto_update_enabled) { %>
-                        <span class="badge bg-warning ms-1" title="Atualização automática"><i class="bi bi-arrow-repeat"></i></span>
+                        <span class="badge bg-warning ms-1" title="Atualizacao automatica"><i class="bi bi-arrow-repeat"></i></span>
+                      <% } %>
+                      <% if (source.auto_index_after_catalog) { %>
+                        <span class="badge bg-info ms-1" title="Indexacao automatica apos catalogacao"><i class="bi bi-search"></i></span>
                       <% } %>
                     </td>
                     <td>
@@ -133,7 +166,22 @@
                         <%= source.last_status || 'idle' %>
                       </span>
                     </td>
-                    <td><%= source.total_documents || 0 %></td>
+                    <td>
+                      <div><%= source.total_documents || 0 %></div>
+                      <div class="progress mt-2" style="height: 6px;">
+                        <div
+                          class="progress-bar bg-success"
+                          role="progressbar"
+                          style="width: <%= source.progress.progressPercent %>%"
+                          aria-valuenow="<%= source.progress.progressPercent %>"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                        ></div>
+                      </div>
+                      <small class="text-muted d-block mt-1">
+                        <%= source.progress.indexed %> indexados, <%= source.progress.pending %> pendentes, <%= source.progress.error %> com erro
+                      </small>
+                    </td>
                     <td>
                       <% if (source.last_run_at) { %>
                         <small><%= new Date(source.last_run_at).toLocaleString('pt-BR') %></small>
@@ -148,17 +196,51 @@
                         </a>
                         <form action="/admin/catalog/<%= source.id %>/run" method="POST" class="d-inline">
                           <input type="hidden" name="type" value="update">
-                          <button type="submit" class="btn btn-outline-primary" title="Atualizar Catálogo">
+                          <button type="submit" class="btn btn-outline-primary" title="Atualizar Catalogo">
                             <i class="bi bi-arrow-repeat"></i>
                           </button>
                         </form>
                         <form action="/admin/catalog/<%= source.id %>/run" method="POST" class="d-inline">
                           <input type="hidden" name="type" value="create">
-                          <button type="submit" class="btn btn-outline-success" title="Recriar Catálogo">
+                          <button type="submit" class="btn btn-outline-success" title="Recriar Catalogo">
                             <i class="bi bi-cloud-download"></i>
                           </button>
                         </form>
+                        <form action="/admin/catalog/<%= source.id %>/index" method="POST" class="d-inline">
+                          <button type="submit" class="btn btn-outline-dark" title="Indexar Documentos">
+                            <i class="bi bi-search"></i>
+                          </button>
+                        </form>
+                        <% if (source.progress.resumable) { %>
+                          <form action="/admin/catalog/<%= source.id %>/index" method="POST" class="d-inline">
+                            <input type="hidden" name="only_pending" value="on">
+                            <button type="submit" class="btn btn-outline-warning" title="Continuar Indexacao">
+                              <i class="bi bi-play-circle"></i>
+                            </button>
+                          </form>
+                        <% } %>
+                        <div class="btn-group">
+                          <button type="button" class="btn btn-outline-danger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Mais opcoes">
+                            <i class="bi bi-three-dots-vertical"></i>
+                          </button>
+                          <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                              <a class="dropdown-item text-danger" href="#" onclick="deleteSource(<%= source.id %>, <%= source.total_documents || 0 %>)">
+                                <i class="bi bi-trash me-2"></i>Excluir Fonte
+                              </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                              <a class="dropdown-item" href="#" onclick="deleteSource(<%= source.id %>, <%= source.total_documents || 0 %>, true)">
+                                <i class="bi bi-trash-fill me-2"></i>Excluir Tudo (Fonte + Docs)
+                              </a>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
+                      <small class="text-muted d-block mt-2">
+                        Estado salvo por documento. Se parar, a continuidade usa os pendentes e erros.
+                      </small>
                     </td>
                   </tr>
                 <% }); %>
@@ -173,14 +255,14 @@
   <div class="col-md-4">
     <div class="card">
       <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Histórico de Execuções</h5>
+        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Historico de Execucoes</h5>
       </div>
       <div class="card-body p-0">
         <div class="list-group list-group-flush">
           <% if (!runs || runs.length === 0) { %>
             <div class="list-group-item text-center text-muted py-4">
               <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
-              Nenhuma execução registrada
+              Nenhuma execucao registrada
             </div>
           <% } else { %>
             <% runs.slice(0, 10).forEach(function(run) { %>
@@ -188,7 +270,7 @@
                 <div class="d-flex justify-content-between align-items-start">
                   <div>
                     <small class="text-muted d-block">Fonte #<%= run.source_id %></small>
-                    <small><%= run.type === 'create' ? 'Criação' : 'Atualização' %></small>
+                    <small><%= run.type === 'create' ? 'Criacao' : 'Atualizacao' %></small>
                   </div>
                   <span class="badge badge-status <%= run.status === 'success' ? 'bg-success' : run.status === 'error' ? 'bg-danger' : run.status === 'running' ? 'bg-primary' : 'bg-secondary' %>">
                     <%= run.status %>
@@ -204,9 +286,12 @@
                     <div class="mt-1">
                       <small><span class="text-success">+<%= run.new_items %></span> novos</small>
                       <small class="ms-2"><span class="text-info">~<%= run.updated_items %></span> atualizados</small>
+                      <% if (run.metadata_json && run.metadata_json.queued_for_index) { %>
+                        <small class="ms-2"><span class="text-primary"><%= run.metadata_json.queued_for_index %></span> em fila</small>
+                      <% } %>
                     </div>
                   <% } else if (run.message) { %>
-                    <small class="text-danger d-block mt-1"><%= run.message.substring(0, 50) %></small>
+                    <small class="text-danger d-block mt-1"><%= run.message.substring(0, 80) %></small>
                   <% } %>
                 </div>
               </div>
@@ -222,36 +307,55 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Nova Fonte de Catálogo</h5>
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Nova Fonte de Catalogo</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form action="/admin/catalog" method="POST">
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Nome</label>
-            <input type="text" name="name" class="form-control" required placeholder="Ex: Publicações Cujubim">
+            <input type="text" name="name" class="form-control" required placeholder="Ex: Publicacoes Cujubim">
           </div>
           <div class="mb-3">
             <label class="form-label">Slug</label>
             <input type="text" name="slug" class="form-control" required placeholder="Ex: cujubim-publicacoes">
-            <small class="text-muted">Identificador único em minúsculas</small>
+            <small class="text-muted">Identificador unico em minusculas</small>
           </div>
           <div class="mb-3">
             <label class="form-label">URL da Fonte</label>
             <input type="url" name="source_url" class="form-control" required placeholder="https://...">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-md-5">
+              <label class="form-label">Estado <span class="text-danger">*</span></label>
+              <select name="state" class="form-select" required>
+                <option value="">Selecione...</option>
+                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(function(item) { %>
+                  <option value="<%= item[0] %>"><%= item[0] %> — <%= item[1] %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Cidade <span class="text-danger">*</span></label>
+              <input type="text" name="city" class="form-control" required placeholder="Ex: Cujubim">
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label">Agendamento</label>
             <select name="schedule_type" class="form-select">
               <option value="manual">Manual</option>
               <option value="hourly">A cada hora</option>
-              <option value="daily">Diário</option>
+              <option value="daily">Diario</option>
               <option value="weekly">Semanal</option>
             </select>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" name="auto_update_enabled" class="form-check-input" id="autoUpdate">
-            <label class="form-check-label" for="autoUpdate">Atualização automática</label>
+            <label class="form-check-label" for="autoUpdate">Atualizacao automatica</label>
+          </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" name="auto_index_after_catalog" class="form-check-input" id="autoIndexAfterCatalog">
+            <label class="form-check-label" for="autoIndexAfterCatalog">Indexar automaticamente apos catalogacao</label>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" name="is_active" class="form-check-input" id="isActive" checked>
@@ -266,3 +370,35 @@
     </div>
   </div>
 </div>
+
+<script>
+async function deleteSource(sourceId, docCount, cascade) {
+  let message = 'Excluir esta fonte do catalogo?';
+  if (docCount > 0 && !cascade) {
+    message = 'Esta fonte possui ' + docCount + ' documentos. Use "Excluir Tudo" para remover fonte e documentos juntos.';
+    alert(message);
+    return;
+  }
+  
+  if (!confirm(cascade 
+    ? 'ATENCAO: Isso ira excluir a fonte e TODOS os ' + docCount + ' documentos associados. Esta acao nao pode ser desfeita!' 
+    : message)) {
+    return;
+  }
+  
+  try {
+    const url = '/admin/catalog/' + sourceId + (cascade ? '?cascade=true' : '');
+    const response = await fetch(url, { method: 'DELETE' });
+    const data = await response.json();
+    
+    if (response.ok) {
+      alert('Fonte excluida com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (data.error || 'Falha ao excluir fonte'));
+    }
+  } catch (error) {
+    alert('Erro: ' + error.message);
+  }
+}
+</script>

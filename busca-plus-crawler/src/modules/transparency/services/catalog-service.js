@@ -1,5 +1,6 @@
 const { CujubimPublicacoesCrawler } = require('../crawlers/cujubim-publicacoes-crawler');
 const { CatalogSource, CatalogRun, CatalogDocument } = require('../../../models');
+const catalogIndexService = require('./catalog-index.service');
 
 class CatalogService {
   constructor({ logger, sequelize }) {
@@ -9,7 +10,9 @@ class CatalogService {
 
   async runCreateOrUpdate(sourceId, { type = 'update', maxPages = null } = {}) {
     const source = await CatalogSource.findByPk(sourceId);
-    if (!source) throw new Error('Fonte de catálogo não encontrada');
+    if (!source) {
+      throw new Error('Fonte de catalogo nao encontrada');
+    }
 
     const run = await CatalogRun.create({
       source_id: source.id,
@@ -19,7 +22,7 @@ class CatalogService {
       new_items: 0,
       updated_items: 0,
       failed_items: 0,
-      message: 'Catalogação iniciada',
+      message: 'Catalogacao iniciada',
     });
 
     try {
@@ -27,6 +30,13 @@ class CatalogService {
         logger: this.logger,
         maxPages,
         headless: true,
+        shouldContinue: async () => {
+          const currentRun = await CatalogRun.findByPk(run.id, {
+            attributes: ['status'],
+          });
+
+          return currentRun?.status === 'running';
+        },
       });
 
       const items = await crawler.crawlCatalog();
@@ -38,24 +48,32 @@ class CatalogService {
       for (const item of items) {
         try {
           if (!item.external_id) {
-            this.logger.warn(`[catalog] Skipping item without external_id`);
-            failedItems++;
+            this.logger.warn('[catalog] Skipping item without external_id');
+            failedItems += 1;
             continue;
           }
-          
-          const [doc, created] = await CatalogDocument.findOrCreate({
+
+          let doc = await CatalogDocument.findOne({
             where: {
               source_id: source.id,
               external_id: item.external_id,
             },
-            defaults: {
-              source_id: source.id,
-              ...item,
-            },
           });
 
-          if (created) {
-            newItems++;
+          if (!doc) {
+            doc = await CatalogDocument.findOne({
+              where: {
+                download_url: item.download_url,
+              },
+            });
+          }
+
+          if (!doc) {
+            await CatalogDocument.create({
+              source_id: source.id,
+              ...item,
+            });
+            newItems += 1;
             continue;
           }
 
@@ -69,12 +87,17 @@ class CatalogService {
             await doc.update({
               ...item,
               source_id: source.id,
+              status: 'pending',
             });
-            updatedItems++;
+            updatedItems += 1;
           }
         } catch (err) {
+          if (err.message && err.message.includes('unique constraint')) {
+            this.logger.warn(`[catalog] Duplicate detected for ${item.external_id}, skipping`);
+            continue;
+          }
           this.logger.warn(`[catalog] Error processing item ${item.external_id}: ${err.message}`);
-          failedItems++;
+          failedItems += 1;
         }
       }
 
@@ -84,13 +107,26 @@ class CatalogService {
         total_documents: await CatalogDocument.count({ where: { source_id: source.id } }),
       });
 
+      let message = `Catalogacao concluida. Novos: ${newItems}, Atualizados: ${updatedItems}, Falhas: ${failedItems}`;
+      const metadata = {};
+
+      if (source.auto_index_after_catalog) {
+        const queueResult = await catalogIndexService.queueSourceDocuments(source.id, {
+          onlyPending: false,
+          resetErrored: true,
+        });
+        metadata.queued_for_index = queueResult.queued;
+        message = `${message}. Indexados em fila: ${queueResult.queued}`;
+      }
+
       await run.update({
         status: 'success',
         finished_at: new Date(),
         new_items: newItems,
         updated_items: updatedItems,
         failed_items: failedItems,
-        message: `Catalogação concluída. Novos: ${newItems}, Atualizados: ${updatedItems}, Falhas: ${failedItems}`,
+        metadata_json: metadata,
+        message,
       });
 
       return run;

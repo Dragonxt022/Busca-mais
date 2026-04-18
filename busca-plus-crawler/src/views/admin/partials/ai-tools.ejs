@@ -1,0 +1,208 @@
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-2">Ferramentas de IA</h1>
+    <p class="text-muted mb-0">Gerencie os provedores e funcionalidades de IA consumidos pela aplica&ccedil;&atilde;o de busca. Tudo come&ccedil;a desativado.</p>
+  </div>
+  <span class="badge rounded-pill text-bg-secondary px-3 py-2" id="aiStatusBadge">Carregando...</span>
+</div>
+
+<form id="aiSettingsForm" class="d-grid gap-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Controle geral</h2>
+        <p class="text-muted mb-0">Define se qualquer recurso de IA pode ser executado.</p>
+      </div>
+
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="enabled" name="enabled">
+        <label class="form-check-label" for="enabled">Ativar recursos de IA</label>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="provider">Provedor principal</label>
+          <select class="form-select" id="provider" name="provider">
+            <option value="ollama">Ollama</option>
+            <option value="google">Google AI</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="summaryMaxCharacters">Limite de caracteres por resumo</label>
+          <input class="form-control" type="number" id="summaryMaxCharacters" name="summaryMaxCharacters" min="1000" max="50000" step="500">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Funcionalidades</h2>
+        <p class="text-muted mb-0">Ative individualmente o que ficar liberado para o front.</p>
+      </div>
+
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="featurePageSummary" name="featurePageSummary">
+        <label class="form-check-label" for="featurePageSummary">Resumo de pagina com IA</label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="featureSearchReport" name="featureSearchReport">
+        <label class="form-check-label" for="featureSearchReport">Relatorio de busca com IA</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Google AI</h2>
+        <p class="text-muted mb-0">Configuracao completa do provedor Google.</p>
+      </div>
+
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="googleEnabled" name="googleEnabled">
+        <label class="form-check-label" for="googleEnabled">Habilitar Google AI</label>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="googleApiKey">API Key</label>
+          <input class="form-control" type="password" id="googleApiKey" name="googleApiKey" autocomplete="off">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="googleModel">Modelo</label>
+          <input class="form-control" type="text" id="googleModel" name="googleModel" placeholder="gemini-2.0-flash">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="googleApiUrl">URL da API</label>
+          <input class="form-control" type="url" id="googleApiUrl" name="googleApiUrl" placeholder="https://generativelanguage.googleapis.com/v1beta/models">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Ollama</h2>
+        <p class="text-muted mb-0">Configuracao completa do provedor local.</p>
+      </div>
+
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="ollamaEnabled" name="ollamaEnabled">
+        <label class="form-check-label" for="ollamaEnabled">Habilitar Ollama</label>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="ollamaBaseUrl">Base URL</label>
+          <input class="form-control" type="url" id="ollamaBaseUrl" name="ollamaBaseUrl" placeholder="http://127.0.0.1:11434">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="ollamaModel">Modelo</label>
+          <input class="form-control" type="text" id="ollamaModel" name="ollamaModel" placeholder="llama3.1:8b">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <button class="btn btn-primary" type="submit">Salvar configuracoes</button>
+    <div id="aiSettingsFeedback" class="small text-muted"></div>
+  </div>
+</form>
+
+<script>
+  (function aiSettingsAdmin() {
+    const form = document.getElementById('aiSettingsForm');
+    const feedback = document.getElementById('aiSettingsFeedback');
+    const statusBadge = document.getElementById('aiStatusBadge');
+
+    if (!form) {
+      return;
+    }
+
+    function setFeedback(message, isError) {
+      feedback.textContent = message || '';
+      feedback.className = isError ? 'small text-danger' : 'small text-muted';
+    }
+
+    function setStatus(settings) {
+      if (!settings || !settings.enabled) {
+        statusBadge.className = 'badge rounded-pill text-bg-secondary px-3 py-2';
+        statusBadge.textContent = 'IA desativada';
+        return;
+      }
+
+      statusBadge.className = 'badge rounded-pill text-bg-success px-3 py-2';
+      statusBadge.textContent = 'IA ativa • ' + String(settings.provider || '').toUpperCase();
+    }
+
+    function fillForm(settings) {
+      form.enabled.checked = Boolean(settings.enabled);
+      form.provider.value = settings.provider || 'ollama';
+      form.summaryMaxCharacters.value = settings.summaryMaxCharacters || 12000;
+      form.featurePageSummary.checked = Boolean(settings.features && settings.features.pageSummary);
+      form.featureSearchReport.checked = Boolean(settings.features && settings.features.searchReport);
+      form.googleEnabled.checked = Boolean(settings.google && settings.google.enabled);
+      form.googleApiKey.value = settings.google && settings.google.apiKey || '';
+      form.googleModel.value = settings.google && settings.google.model || '';
+      form.googleApiUrl.value = settings.google && settings.google.apiUrl || '';
+      form.ollamaEnabled.checked = Boolean(settings.ollama && settings.ollama.enabled);
+      form.ollamaBaseUrl.value = settings.ollama && settings.ollama.baseUrl || '';
+      form.ollamaModel.value = settings.ollama && settings.ollama.model || '';
+      setStatus(settings);
+    }
+
+    function serializeForm() {
+      return {
+        enabled: form.enabled.checked,
+        provider: form.provider.value,
+        summaryMaxCharacters: form.summaryMaxCharacters.value,
+        features: {
+          pageSummary: form.featurePageSummary.checked,
+          searchReport: form.featureSearchReport.checked,
+        },
+        google: {
+          enabled: form.googleEnabled.checked,
+          apiKey: form.googleApiKey.value,
+          model: form.googleModel.value,
+          apiUrl: form.googleApiUrl.value,
+        },
+        ollama: {
+          enabled: form.ollamaEnabled.checked,
+          baseUrl: form.ollamaBaseUrl.value,
+          model: form.ollamaModel.value,
+        },
+      };
+    }
+
+    async function loadSettings() {
+      setFeedback('Carregando configuracoes...', false);
+
+      try {
+        const response = await axios.get('/api/admin/ai-settings');
+        fillForm(response.data);
+        setFeedback('', false);
+      } catch (error) {
+        setFeedback(error.response && error.response.data && error.response.data.error || error.message || 'Falha ao carregar configuracoes.', true);
+      }
+    }
+
+    form.addEventListener('submit', async function onSubmit(event) {
+      event.preventDefault();
+      setFeedback('Salvando...', false);
+
+      try {
+        const response = await axios.post('/api/admin/ai-settings', serializeForm());
+        fillForm(response.data.settings);
+        setFeedback(response.data.message || 'Configuracoes salvas com sucesso.', false);
+      } catch (error) {
+        setFeedback(error.response && error.response.data && error.response.data.error || error.message || 'Falha ao salvar configuracoes.', true);
+      }
+    });
+
+    loadSettings();
+  })();
+</script>

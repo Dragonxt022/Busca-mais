@@ -7,11 +7,12 @@ const { logger } = require('./logger');
 const { hashUrl, extractDomain } = require('./url-utils');
 const HtmlParser = require('./html-parser');
 const config = require('../config');
+const { buildChromiumLaunchOptions } = require('./playwright-utils');
 
 // Image processing constants
 const IMAGES_DIR_NAME = 'images';
 const MAX_IMAGE_SIZE = 1024 * 1024 * 2; // 2MB max per image
-const MAX_IMAGES_PER_PAGE = 5; // Máximo de imagens por página (será deduplicado)
+const MAX_IMAGES_PER_PAGE = 1; // Apenas a imagem de capa (prioridade no html-parser)
 const THUMBNAIL_WIDTH = 320;
 const THUMBNAIL_HEIGHT = 240;
 
@@ -34,17 +35,7 @@ class Crawler {
     // Ensure screenshot directory exists
     await fs.mkdir(this.screenshotDir, { recursive: true });
 
-    this.browser = await chromium.launch({
-      headless: true,
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-      ],
-    });
+    this.browser = await chromium.launch(buildChromiumLaunchOptions());
 
     this.context = await this.browser.newContext({
       userAgent: this.userAgent,
@@ -79,10 +70,12 @@ class Crawler {
       takeScreenshot = false,
       extractLinks = false,
       followRedirects = true,
+      downloadImages = false,
     } = options;
 
     const startTime = Date.now();
     let page = null;
+    let context = null;
 
     try {
       // Ensure browser is initialized
@@ -90,7 +83,15 @@ class Crawler {
         await this.init();
       }
 
-      page = await this.context.newPage();
+      // Create a NEW context for each crawl to avoid race conditions
+      context = await this.browser.newContext({
+        userAgent: this.userAgent,
+        viewport: this.viewport,
+        javaScriptEnabled: true,
+        ignoreHTTPSErrors: true,
+      });
+
+      page = await context.newPage();
 
       // Set timeout
       page.setDefaultTimeout(this.timeout);
@@ -128,9 +129,9 @@ class Crawler {
       const parser = new HtmlParser(html, finalUrl);
       const parsedData = parser.extractAll();
 
-      // Process images from the page (limit to MAX_IMAGES_PER_PAGE)
+      // Process images from the page only if downloadImages is enabled
       let processedImages = [];
-      if (parsedData.images && parsedData.images.length > 0) {
+      if (downloadImages && parsedData.images && parsedData.images.length > 0) {
         const limitedImages = parsedData.images.slice(0, MAX_IMAGES_PER_PAGE);
         processedImages = await this.processImages(limitedImages, finalUrl);
       }
@@ -172,7 +173,10 @@ class Crawler {
       };
     } finally {
       if (page) {
-        await page.close();
+        await page.close().catch(() => {});
+      }
+      if (context) {
+        await context.close().catch(() => {});
       }
     }
   }

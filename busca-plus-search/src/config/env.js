@@ -23,4 +23,18 @@ module.exports = {
     apiUrl: process.env.CRAWLER_API_URL || 'http://localhost:3001',
     externalUrl: process.env.CRAWLER_EXTERNAL_URL || 'http://localhost:3001',
   },
+
+  ai: {
+    provider: (process.env.AI_PROVIDER || 'ollama').toLowerCase(),
+    summaryMaxCharacters: parseInt(process.env.AI_SUMMARY_MAX_CHARACTERS, 10) || 12000,
+    google: {
+      apiKey: process.env.GOOGLE_AI_API_KEY || '',
+      model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash',
+      apiUrl: process.env.GOOGLE_AI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models',
+    },
+    ollama: {
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+      model: process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    },
+  },
 };

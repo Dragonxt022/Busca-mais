@@ -1,0 +1,23 @@
+{
+  "name": "busca-plus-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Orquestracao local de desenvolvimento do Busca+",
+  "scripts": {
+    "infra:up": "docker compose -f docker-compose.dev.yml up -d",
+    "infra:down": "docker compose -f docker-compose.dev.yml down",
+    "infra:restart": "docker compose -f docker-compose.dev.yml restart",
+    "infra:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "infra:status": "docker compose -f docker-compose.dev.yml ps",
+    "infra:clean": "powershell -ExecutionPolicy Bypass -File .\\reset.ps1",
+    "dev": "concurrently -k -n crawler,search -c yellow,cyan \"npm run dev --prefix ../busca-plus-crawler\" \"npm run dev --prefix ../busca-plus-search\"",
+    "dev:all": "concurrently -k -n crawler,search,worker -c yellow,cyan,magenta \"npm run dev --prefix ../busca-plus-crawler\" \"npm run dev --prefix ../busca-plus-search\" \"npm run worker --prefix ../busca-plus-crawler\"",
+    "dev:boot": "powershell -ExecutionPolicy Bypass -File .\\dev.ps1 -Init",
+    "dev:boot:all": "powershell -ExecutionPolicy Bypass -File .\\dev.ps1 -Init -WithWorker",
+    "dev:worker": "npm run worker --prefix ../busca-plus-crawler",
+    "init": "npm run init --prefix ../busca-plus-crawler"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

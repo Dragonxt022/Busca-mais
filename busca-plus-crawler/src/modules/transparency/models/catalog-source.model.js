@@ -20,6 +20,14 @@ const CatalogSource = (sequelize) => {
       type: DataTypes.STRING(500),
       allowNull: false,
     },
+    state: {
+      type: DataTypes.STRING(2),
+      allowNull: true,
+    },
+    city: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,

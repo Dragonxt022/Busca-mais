@@ -14,11 +14,16 @@ class SourceService {
       base_url: data.url || data.baseUrl || data.base_url,
       type: data.type || 'website',
       category: data.category || 'general',
-      is_active: data.status !== 'inactive',
-      crawl_depth: data.crawlDepth || data.maxPages || 3,
-      follow_internal_links: data.followInternalLinks !== false,
-      download_images: data.downloadImages !== false,
+      is_active: data.is_active !== false,
+      crawl_depth: data.crawl_depth || data.crawlDepth || data.maxPages || 3,
+      follow_internal_links: data.follow_internal_links !== false,
+      download_images: data.download_images === true,
+      take_screenshots: data.take_screenshots === true,
+      delay_between_requests: data.delay_between_requests || 1000,
+      user_agent: data.user_agent || null,
       schedule: data.schedule || null,
+      state: data.state || null,
+      city: data.city || null,
       config_json: data.config || data.configJson || {},
     });
 
@@ -48,7 +53,12 @@ class SourceService {
     }
     if (data.followInternalLinks !== undefined) updateData.follow_internal_links = data.followInternalLinks;
     if (data.downloadImages !== undefined) updateData.download_images = data.downloadImages;
+    if (data.takeScreenshots !== undefined) updateData.take_screenshots = data.takeScreenshots;
+    if (data.delayBetweenRequests !== undefined) updateData.delay_between_requests = data.delayBetweenRequests;
+    if (data.userAgent !== undefined) updateData.user_agent = data.userAgent;
     if (data.schedule !== undefined) updateData.schedule = data.schedule;
+    if (data.state !== undefined) updateData.state = data.state || null;
+    if (data.city !== undefined) updateData.city = data.city || null;
     if (data.config !== undefined || data.configJson !== undefined) {
       updateData.config_json = data.config || data.configJson;
     }
@@ -132,12 +142,12 @@ class SourceService {
       throw new Error('Source not found');
     }
 
-    const { discover = true, maxPages = source.max_pages } = options;
+    const { discover = true, maxPages = source.crawl_depth * 50 } = options;
 
     // Create a crawl job
     const job = await CrawlJob.create({
       source_id: sourceId,
-      type: discover ? 'discovery' : 'refresh',
+      type: discover ? 'discovery' : 'incremental',
       status: 'pending',
       total_pages: 0,
       processed_pages: 0,
@@ -162,16 +172,17 @@ class SourceService {
         where: { source_id: sourceId },
         limit: maxPages,
       });
+      const runToken = Date.now();
+
+      await job.update({ total_pages: pages.length, status: 'running', started_at: new Date() });
 
       for (const page of pages) {
         await crawlQueue.add(
           'crawl-page',
-          { pageId: page.id, url: page.url, sourceId: source.id, jobId: job.id },
-          { jobId: `crawl-${page.id}` }
+          { pageId: page.id, url: page.url, sourceId: source.id, crawlJobId: job.id },
+          { jobId: `crawl-${page.id}-${runToken}` }
         );
       }
-
-      await job.update({ total_pages: pages.length });
     }
 
     await source.update({ last_crawled_at: new Date() });

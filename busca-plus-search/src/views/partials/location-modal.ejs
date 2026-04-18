@@ -1,0 +1,27 @@
+<div class="location-modal-overlay" id="locationModal" hidden>
+  <div class="location-modal-box">
+    <div class="location-modal-header">
+      <span class="location-modal-logo">Busca<span>+</span></span>
+      <p>Selecione sua localização para ver resultados da sua cidade</p>
+    </div>
+    <form id="locationForm" class="location-modal-form">
+      <div class="location-field">
+        <label for="locationState">Estado</label>
+        <select id="locationState" required>
+          <option value="">Selecione o estado...</option>
+          <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(function(item) { %>
+            <option value="<%= item[0] %>"><%= item[0] %> — <%= item[1] %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="location-field">
+        <label for="locationCity">Cidade</label>
+        <input type="text" id="locationCity" placeholder="Nome da sua cidade" required>
+      </div>
+      <div class="location-modal-actions">
+        <button type="submit" class="location-btn-confirm">Confirmar localização</button>
+        <button type="button" class="location-btn-skip" id="locationSkip">Pular por enquanto</button>
+      </div>
+    </form>
+  </div>
+</div>

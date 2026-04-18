@@ -1,0 +1,68 @@
+<div class="d-flex justify-content-between align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-bar-chart me-2"></i>Analytics — Patrocínios</h1>
+  <a href="/admin/sponsors" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i> Voltar
+  </a>
+</div>
+
+<% if (!data || data.length === 0) { %>
+  <div class="text-center py-5 text-muted">Nenhum dado disponível.</div>
+<% } else { %>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Patrocinador</th>
+          <th>Localização</th>
+          <th>Período</th>
+          <th>Cliques</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% const today = new Date().toISOString().slice(0, 10); %>
+        <% data.forEach((s) => { %>
+          <%
+            const active = s.is_active && s.start_date <= today && s.end_date >= today;
+            const pct = data[0].click_count > 0 ? Math.round((s.click_count / data[0].click_count) * 100) : 0;
+          %>
+          <tr>
+            <td>
+              <div class="fw-semibold"><%= s.name %></div>
+              <a href="<%= s.url %>" target="_blank" class="text-muted small"><%= s.url.substring(0, 50) %></a>
+            </td>
+            <td>
+              <% if (s.state || s.city) { %>
+                <span class="badge bg-info text-dark"><%= [s.city, s.state].filter(Boolean).join(' — ') %></span>
+              <% } else { %>
+                <span class="text-muted small">Nacional</span>
+              <% } %>
+            </td>
+            <td>
+              <small class="text-muted">
+                <%= new Date(s.start_date).toLocaleDateString('pt-BR') %> → <%= new Date(s.end_date).toLocaleDateString('pt-BR') %>
+              </small>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold fs-5 text-primary"><%= s.click_count %></span>
+                <div class="progress flex-grow-1" style="height:6px">
+                  <div class="progress-bar" style="width:<%= pct %>%"></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <% if (active) { %>
+                <span class="badge bg-success">Ativo</span>
+              <% } else if (!s.is_active) { %>
+                <span class="badge bg-secondary">Pausado</span>
+              <% } else { %>
+                <span class="badge bg-warning text-dark">Expirado</span>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

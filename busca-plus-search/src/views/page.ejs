@@ -1,189 +1,401 @@
+<%
+  const readableContent = String(page.markdownContent || page.content || '').trim();
+  const safeTitle = page.title || 'Detalhes do documento';
+  const isCatalogDocument = page.recordType === 'catalog_document';
+
+  const openUrl = page.openUrl || page.downloadUrl || page.url || '#';
+  const sourceHref = page.sourceLinkUrl || page.sourceUrl || page.url || '#';
+
+  const leadText = String(page.summary || page.description || readableContent || 'Nenhum conteudo textual disponivel.')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const excerptLength = 500;
+  const leadExcerpt = leadText.length > excerptLength
+    ? `${leadText.slice(0, excerptLength).trim()}...`
+    : leadText;
+
+  const featuredImage =
+    page.coverThumbnail ||
+    page.coverImage ||
+    page.featuredImage ||
+    page.thumbnailUrl ||
+    page.screenshotUrl ||
+    page.imageUrl ||
+    (page.images && page.images.length > 0 ? page.images[0] : null) ||
+    '';
+
+  const featuredCaption =
+    page.coverAlt ||
+    page.imageCaption ||
+    page.thumbnailCaption ||
+    page.screenshotCaption ||
+    '';
+
+  const publishedDate =
+    page.publicationDate ||
+    page.documentDate ||
+    '';
+
+  const snapshotDate = page.crawledAt
+    ? new Date(page.crawledAt).toLocaleString('pt-BR')
+    : '';
+
+  const searchQuery = typeof query !== 'undefined' ? query : '';
+  const searchFocus = typeof focus !== 'undefined' ? focus : '';
+  const documentMetaItems = [
+    { label: 'Tipo', value: page.documentType || '' },
+    { label: 'Numero', value: page.documentNumber || '' },
+    { label: 'Documento', value: page.documentDate || '' },
+    { label: 'Publicacao', value: page.publicationDate || '' },
+    { label: 'Fonte', value: page.sourceName || '' },
+  ].filter((item) => item.value);
+
+  const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const normalizeLine = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+  const isUppercaseHeading = (line) => {
+    const normalized = normalizeLine(line);
+
+    if (!normalized || normalized.length > 90) {
+      return false;
+    }
+
+    const lettersOnly = normalized.replace(/[^A-Za-zÀ-ÿ]/g, '');
+    if (lettersOnly.length < 6) {
+      return false;
+    }
+
+    return normalized === normalized.toUpperCase();
+  };
+
+  const isStructuredHeading = (line) => /^(capitulo|se[cç][aã]o|subse[cç][aã]o|t[ií]tulo|anexo|ap[eê]ndice|livro|parte|art\.|artigo)\b/i.test(normalizeLine(line));
+
+  const isFieldLine = (line) => /^([A-ZÀ-Ý][^:]{1,40}):\s+(.+)$/.test(normalizeLine(line));
+
+  const isOrderedItem = (line) => /^(\d+[\.\)]|[ivxlcdm]+[\.\)]|[a-z][\.\)])\s+/i.test(normalizeLine(line));
+
+  const isUnorderedItem = (line) => /^[-*•]\s+/.test(normalizeLine(line));
+
+  const isQuoteLine = (line) => /^>\s+/.test(normalizeLine(line));
+
+  const isTableLine = (line) => normalizeLine(line).includes(' | ');
+
+  const stripListMarker = (line) => normalizeLine(line).replace(/^((\d+|[ivxlcdm]+|[a-z])[\.\)]|[-*•])\s+/i, '');
+
+  const renderParagraphWithBreaks = (lines, className = '') => {
+    const safeLines = lines.map((line) => escapeHtml(normalizeLine(line)));
+    return `<p${className ? ` class="${className}"` : ''}>${safeLines.join('<br>')}</p>`;
+  };
+
+  const renderTable = (lines) => {
+    const rows = lines
+      .map((line) => normalizeLine(line).split(/\s+\|\s+/).map((cell) => escapeHtml(cell)))
+      .filter((cells) => cells.length > 1);
+
+    if (rows.length === 0) {
+      return '';
+    }
+
+    const [header, ...body] = rows;
+    const headerHtml = `<tr>${header.map((cell) => `<th>${cell}</th>`).join('')}</tr>`;
+    const bodyHtml = body.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
+
+    return `
+      <div class="document-table-wrap">
+        <table class="document-table">
+          <thead>${headerHtml}</thead>
+          <tbody>${bodyHtml}</tbody>
+        </table>
+      </div>
+    `;
+  };
+
+  const formatContentHtml = (text) => {
+    if (!text) {
+      return '<p>Nenhum conteudo textual disponivel.</p>';
+    }
+
+    const blocks = text
+      .replace(/\r\n/g, '\n')
+      .split(/\n\s*\n/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+
+    const htmlBlocks = [];
+
+    blocks.forEach((block) => {
+      const lines = block
+        .split('\n')
+        .map((line) => line.replace(/\t/g, '  '))
+        .map((line) => line.replace(/\s+$/g, ''))
+        .filter((line) => normalizeLine(line));
+
+      if (lines.length === 0) {
+        return;
+      }
+
+      if (lines.every((line) => isTableLine(line))) {
+        htmlBlocks.push(renderTable(lines));
+        return;
+      }
+
+      if (lines.every((line) => isFieldLine(line)) && lines.length >= 2) {
+        const fieldsHtml = lines.map((line) => {
+          const [, label, value] = normalizeLine(line).match(/^([A-ZÀ-Ý][^:]{1,40}):\s+(.+)$/) || [];
+          return `<div class="document-field"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
+        }).join('');
+
+        htmlBlocks.push(`<dl class="document-fields">${fieldsHtml}</dl>`);
+        return;
+      }
+
+      if (lines.length === 1 && isQuoteLine(lines[0])) {
+        htmlBlocks.push(`<blockquote>${escapeHtml(normalizeLine(lines[0]).replace(/^>\s+/, ''))}</blockquote>`);
+        return;
+      }
+
+      if (/^#{1,3}\s+/.test(normalizeLine(lines[0]))) {
+        const headingLevel = Math.min(4, normalizeLine(lines[0]).match(/^#+/)[0].length + 1);
+        htmlBlocks.push(`<h${headingLevel}>${escapeHtml(normalizeLine(lines[0]).replace(/^#{1,3}\s+/, ''))}</h${headingLevel}>`);
+
+        if (lines.length > 1) {
+          htmlBlocks.push(renderParagraphWithBreaks(lines.slice(1)));
+        }
+
+        return;
+      }
+
+      if (lines.length === 1 && (isUppercaseHeading(lines[0]) || isStructuredHeading(lines[0]))) {
+        htmlBlocks.push(`<h3 class="document-section-title">${escapeHtml(normalizeLine(lines[0]))}</h3>`);
+        return;
+      }
+
+      if (lines.every((line) => isUnorderedItem(line))) {
+        htmlBlocks.push(`<ul>${lines.map((line) => `<li>${escapeHtml(stripListMarker(line))}</li>`).join('')}</ul>`);
+        return;
+      }
+
+      if (lines.every((line) => isOrderedItem(line))) {
+        htmlBlocks.push(`<ol>${lines.map((line) => `<li>${escapeHtml(stripListMarker(line))}</li>`).join('')}</ol>`);
+        return;
+      }
+
+      if (lines.length > 1 && lines.every((line) => !/[.!?;:]$/.test(normalizeLine(line)) && normalizeLine(line).length <= 80)) {
+        htmlBlocks.push(renderParagraphWithBreaks(lines, 'document-lines'));
+        return;
+      }
+
+      if (lines.some((line) => isQuoteLine(line))) {
+        lines.forEach((line) => {
+          if (isQuoteLine(line)) {
+            htmlBlocks.push(`<blockquote>${escapeHtml(normalizeLine(line).replace(/^>\s+/, ''))}</blockquote>`);
+          } else {
+            htmlBlocks.push(renderParagraphWithBreaks([line]));
+          }
+        });
+        return;
+      }
+
+      htmlBlocks.push(renderParagraphWithBreaks(lines, lines.length > 1 ? 'document-compact-paragraph' : ''));
+    });
+
+    return htmlBlocks.join('');
+  };
+
+  const formattedContentHtml = formatContentHtml(readableContent);
+%>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= page.title %> - Busca+</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-  <style>
-    body {
-      background-color: #f8f9fa;
-    }
-    .page-container {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .back-link {
-      margin-bottom: 20px;
-    }
-    .back-link a {
-      color: #0984e3;
-      text-decoration: none;
-    }
-    .back-link a:hover {
-      text-decoration: underline;
-    }
-    .page-card {
-      background: white;
-      border-radius: 10px;
-      padding: 30px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .page-title {
-      color: #2d3436;
-      margin-bottom: 15px;
-    }
-    .page-url {
-      color: #00b894;
-      font-size: 0.9rem;
-      margin-bottom: 20px;
-      word-break: break-all;
-    }
-    .page-url a {
-      color: inherit;
-    }
-    .screenshot-container {
-      margin: 20px 0;
-      text-align: center;
-    }
-    .screenshot {
-      max-width: 100%;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    .page-meta {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 15px;
-      margin-top: 20px;
-    }
-    .meta-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .meta-item:last-child {
-      margin-bottom: 0;
-    }
-    .meta-item i {
-      width: 25px;
-      color: #0984e3;
-    }
-    .page-content {
-      margin-top: 25px;
-      line-height: 1.8;
-    }
-    .page-content h2, .page-content h3 {
-      margin-top: 20px;
-      margin-bottom: 10px;
-    }
-    .keywords {
-      margin-top: 20px;
-    }
-    .keyword-tag {
-      display: inline-block;
-      background: #e3f2fd;
-      color: #0984e3;
-      padding: 5px 12px;
-      border-radius: 15px;
-      font-size: 0.85rem;
-      margin-right: 8px;
-      margin-bottom: 8px;
-    }
-    .actions {
-      margin-top: 25px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
-    }
-  </style>
+  <title><%= safeTitle %> - Busca+</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/page.css">
+  <link rel="stylesheet" href="/css/auth.css">
 </head>
-<body>
-  <div class="page-container">
-    <!-- Back Link -->
-    <div class="back-link">
-      <a href="/"><i class="bi bi-arrow-left"></i> Voltar para busca</a>
-    </div>
+<body class="<%= isCatalogDocument ? 'document-mode-active' : '' %>" data-search-query="<%= searchQuery || '' %>" data-search-focus="<%= searchFocus || '' %>" data-page-id="<%= page.id || '' %>">
+  <div class="page-shell">
+    <header class="page-topbar">
+      <a href="javascript:history.back()" class="back-link">
+        <span class="material-icons">arrow_back</span>
+        Voltar
+      </a>
 
-    <!-- Page Card -->
-    <div class="page-card">
-      <h1 class="page-title"><%= page.title %></h1>
-      
-      <div class="page-url">
-        <i class="bi bi-link-45deg"></i>
-        <a href="<%= page.url %>" target="_blank"><%= page.url %></a>
-      </div>
-
-      <!-- Screenshot -->
-      <% if (page.screenshotPath) { %>
-        <div class="screenshot-container">
-          <img src="<%= page.screenshotPath %>" alt="Screenshot" class="screenshot">
-        </div>
-      <% } %>
-
-      <!-- Description -->
-      <% if (page.description) { %>
-        <p class="lead"><%= page.description %></p>
-      <% } %>
-
-      <!-- Metadata -->
-      <div class="page-meta">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="meta-item">
-              <i class="bi bi-globe"></i>
-              <span><strong>Fonte:</strong> <%= page.sourceName || 'Desconhecida' %></span>
-            </div>
-            <div class="meta-item">
-              <i class="bi bi-calendar"></i>
-              <span><strong>Indexado em:</strong> <%= new Date(page.crawledAt).toLocaleString('pt-BR') %></span>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="meta-item">
-              <i class="bi bi-eye"></i>
-              <span><strong>Visualizações:</strong> Controle não implementado</span>
-            </div>
-            <div class="meta-item">
-              <i class="bi bi-star"></i>
-              <span><strong>Relevância:</strong> Alta</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Keywords -->
-      <% if (page.keywords && page.keywords.length > 0) { %>
-        <div class="keywords">
-          <strong>Palavras-chave:</strong>
-          <br>
-          <% page.keywords.forEach(keyword => { %>
-            <span class="keyword-tag"><%= keyword %></span>
-          <% }); %>
-        </div>
-      <% } %>
-
-      <!-- Content Preview -->
-      <% if (page.content) { %>
-        <div class="page-content">
-          <h4>Conteúdo Indexado</h4>
-          <p><%= page.content.substring(0, 500) %><% if (page.content.length > 500) { %>...<% } %></p>
-        </div>
-      <% } %>
-
-      <!-- Actions -->
-      <div class="actions">
-        <a href="<%= page.url %>" target="_blank" class="btn btn-primary">
-          <i class="bi bi-box-arrow-up-right"></i> Acessar página original
+      <div class="page-topbar-actions">
+        <button type="button" class="nav-auth-btn nav-auth-btn-compact" data-auth-open="login">Login</button>
+        <a href="/profile" class="nav-profile-link nav-profile-link-compact" data-auth-profile-link="true" hidden>
+          <img src="" alt="Foto de perfil" class="nav-profile-avatar" data-auth-avatar="true">
+          <span data-auth-name="true">Meu perfil</span>
         </a>
-        <button class="btn btn-outline-secondary" onclick="window.history.back()">
-          <i class="bi bi-arrow-left"></i> Voltar
-        </button>
+        <% if (searchQuery) { %>
+        <span class="search-context-badge">
+          <span class="material-icons">search</span>
+          Buscando: "<strong id="searchQueryDisplay"></strong>"
+        </span>
+        <% } %>
+        <a href="/" class="page-logo" aria-label="Ir para a página inicial do Busca+">Busca<span>+</span></a>
       </div>
-    </div>
+    </header>
+
+    <main class="page-detail">
+      <article class="page-article <%= isCatalogDocument ? 'page-article-document' : '' %>">
+        <header class="article-header <%= isCatalogDocument ? 'article-header-document' : '' %>">
+          <% if (isCatalogDocument) { %>
+            <div class="document-eyebrow">Documento oficial</div>
+          <% } %>
+          <h1 class="page-title <%= isCatalogDocument ? 'page-title-document' : '' %>"><%= safeTitle %></h1>
+
+          <div class="page-meta <%= isCatalogDocument ? 'page-meta-document' : '' %>">
+            <% if (page.sourceName) { %>
+              <span><%= page.sourceName %></span>
+            <% } %>
+
+            <% if (page.domain) { %>
+              <span>/</span>
+              <span><%= page.domain %></span>
+            <% } %>
+
+            <% if (publishedDate) { %>
+              <span>/</span>
+              <span><%= publishedDate %></span>
+            <% } %>
+          </div>
+
+          <% if (leadExcerpt) { %>
+            <p class="page-lead <%= isCatalogDocument ? 'page-lead-document' : '' %>"><%= leadExcerpt %></p>
+          <% } %>
+        </header>
+
+        <%
+          const aiPageEnabled = typeof aiFeatures === 'undefined' || !aiFeatures ||
+            (aiFeatures.enabled !== false && aiFeatures.features && aiFeatures.features.pageSummary !== false);
+        %>
+        <div class="page-actions">
+          <button
+            type="button"
+            class="page-action page-action-ai<%= aiPageEnabled ? '' : ' page-action-disabled' %>"
+            data-ai-summary-trigger="true"
+            <%= aiPageEnabled ? '' : 'disabled title="IA desativada nas configurações"' %>
+          >
+            <span class="material-icons">auto_awesome</span>
+            <span data-ai-summary-button-label="true"><%= aiPageEnabled ? 'Resumir com IA' : 'IA desativada' %></span>
+          </button>
+
+         
+
+          <a
+            href="<%= openUrl %>"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="page-action page-action-primary"
+          >
+            <span class="material-icons"><%= isCatalogDocument ? 'description' : 'open_in_new' %></span>
+            <%= isCatalogDocument ? 'Abrir arquivo original' : 'Abrir página original' %>
+          </a>
+
+          <% if (sourceHref && sourceHref !== openUrl) { %>
+            <a
+              href="<%= sourceHref %>"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="page-action page-action-secondary"
+            >
+              <span class="material-icons">travel_explore</span>
+              Ver fonte
+            </a>
+          <% } %>
+        </div>
+
+        <div>
+           <section class="ai-summary-card" data-ai-summary-card="true" hidden>
+            <div class="ai-summary-header">
+              <div>
+                <span class="reading-kicker">Leitura assistida</span>
+                <h3>Resumo com IA</h3>
+              </div>
+              <span class="ai-summary-meta" data-ai-summary-meta="true"></span>
+            </div>
+            <p class="ai-summary-status" data-ai-summary-status="true"></p>
+            <div class="ai-summary-output" data-ai-summary-output="true"></div>
+          </section>
+        </div>
+
+        <% if (featuredImage) { %>
+          <figure class="page-featured-media">
+            <img
+              src="<%= featuredImage %>"
+              alt="<%= safeTitle %>"
+              class="page-featured-image"
+            />
+
+            <% if (featuredCaption) { %>
+              <figcaption class="page-featured-caption">
+                <%= featuredCaption %>
+              </figcaption>
+            <% } %>
+          </figure>
+        <% } %>
+
+        <section class="reading-card <%= isCatalogDocument ? 'reading-card-document' : '' %>">
+          <% if (isCatalogDocument) { %>
+            <div class="document-sheet-accent"></div>
+          <% } %>
+          <div class="reading-header <%= isCatalogDocument ? 'reading-header-document' : '' %>">
+            <div>
+              <span class="reading-kicker">
+                <%= isCatalogDocument ? 'Documento catalogado' : 'Página indexada' %>
+              </span>
+              <h2>Conteúdo completo</h2>
+            </div>
+          </div>
+
+          <% if (isCatalogDocument && documentMetaItems.length > 0) { %>
+            <dl class="document-summary-grid">
+              <% documentMetaItems.forEach((item) => { %>
+                <div class="document-summary-item">
+                  <dt><%= item.label %></dt>
+                  <dd><%= item.value %></dd>
+                </div>
+              <% }) %>
+            </dl>
+          <% } %>
+
+          <div class="reading-content" data-reading-content="true" id="readingContent">
+            <%- formattedContentHtml %>
+          </div>
+        </section>
+
+        
+
+        <footer class="page-footer-note">
+          <% if (snapshotDate) { %>
+            <p>Snapshot processado em <%= snapshotDate %>.</p>
+          <% } %>
+          <p>A visualização reflete o conteúdo extraído para fins de indexação e leitura rápida.</p>
+        </footer>
+      </article>
+    </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <%- include('./partials/auth-shell') %>
+  <script src="/js/page-detail.js"></script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/location-ui.js"></script>
+  <% if (searchQuery || searchFocus) { %>
+  <script>
+    window.searchQuery = <%- JSON.stringify(searchQuery) %>;
+    window.searchFocus = <%- JSON.stringify(searchFocus) %>;
+  </script>
+  <% } %>
 </body>
 </html>

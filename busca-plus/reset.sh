@@ -1,26 +1,44 @@
 #!/bin/bash
 
-echo "=== Limpando dados do Busca+ ==="
+set +e
 
-# Parar containers
-echo "Parando containers..."
-docker-compose down
+echo "=== Limpando ambiente do Busca+ ==="
 
-# Remover volumes de dados
-echo "Removendo volumes de dados..."
-docker volume rm busca-plus_postgres_data busca-plus_redis_data busca-plus_typesense_data 2>/dev/null || true
+LEGACY_CONTAINERS=(
+  "busca-plus-search-dev"
+  "busca-plus-search"
+  "busca-plus-worker"
+  "busca-plus-crawler"
+  "busca-plus-minio"
+  "busca-plus-postgres"
+  "busca-plus-redis"
+  "busca-plus-typesense"
+)
 
-# Limpar pastas de imagens e screenshots
-echo "Limpando pastas..."
+LEGACY_VOLUMES=(
+  "busca-plus_postgres_data"
+  "busca-plus_redis_data"
+  "busca-plus_typesense_data"
+  "busca-plus_minio_data"
+)
+
+docker compose -f docker-compose.dev.yml down -v --remove-orphans
+
+echo "Removendo containers legados..."
+for container in "${LEGACY_CONTAINERS[@]}"; do
+  docker rm -f "$container" >/dev/null 2>&1
+done
+
+echo "Removendo volumes legados..."
+for volume in "${LEGACY_VOLUMES[@]}"; do
+  docker volume rm "$volume" >/dev/null 2>&1
+done
+
+echo "Limpando pastas locais..."
 rm -rf images/* screenshots/* 2>/dev/null || true
+mkdir -p images screenshots
 
-# Recriar pastas
-mkdir -p images
-
-echo "=== Dados limpos com sucesso! ==="
 echo ""
-echo "Para reiniciar:"
-echo "  docker-compose up -d"
-echo ""
-echo "Depois inicialize o Typesense:"
-echo "  docker-compose exec crawler node src/scripts/init-typesense.js"
+echo "=== Ambiente limpo com sucesso! ==="
+echo "Para subir infraestrutura: npm run infra:up"
+echo "Para iniciar apps locais: npm run dev"

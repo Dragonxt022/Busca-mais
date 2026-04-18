@@ -1,0 +1,20 @@
+{
+  "enabled": false,
+  "provider": "ollama",
+  "summaryMaxCharacters": 12000,
+  "features": {
+    "pageSummary": false,
+    "searchReport": false
+  },
+  "google": {
+    "enabled": false,
+    "apiKey": "",
+    "model": "gemini-2.0-flash",
+    "apiUrl": "https://generativelanguage.googleapis.com/v1beta/models"
+  },
+  "ollama": {
+    "enabled": false,
+    "baseUrl": "http://127.0.0.1:11434",
+    "model": "llama3.1:8b"
+  }
+}

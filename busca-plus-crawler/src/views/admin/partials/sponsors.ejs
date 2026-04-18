@@ -1,0 +1,218 @@
+<div class="d-flex justify-content-between align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h2"><i class="bi bi-megaphone me-2"></i>Patrocínios</h1>
+  <div class="d-flex gap-2">
+    <a href="/admin/sponsors/analytics" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-bar-chart me-1"></i> Analytics
+    </a>
+    <button class="btn btn-primary btn-sm" onclick="openSponsorModal()">
+      <i class="bi bi-plus-lg me-1"></i> Novo Patrocínio
+    </button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="fs-3 fw-bold text-primary"><%= stats.total %></div>
+      <div class="text-muted small">Total cadastrado</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-3">
+    <div class="card stat-card text-center p-3">
+      <div class="fs-3 fw-bold text-success"><%= stats.active %></div>
+      <div class="text-muted small">Ativos agora</div>
+    </div>
+  </div>
+</div>
+
+<% if (!data || data.length === 0) { %>
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-megaphone fs-1 d-block mb-3 opacity-25"></i>
+    <p>Nenhum patrocínio cadastrado ainda.</p>
+    <button class="btn btn-primary" onclick="openSponsorModal()">Cadastrar primeiro patrocínio</button>
+  </div>
+<% } else { %>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Nome / Descrição</th>
+          <th>Localização</th>
+          <th>Período</th>
+          <th>Cliques</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% data.forEach((s) => { %>
+          <tr>
+            <td>
+              <div class="fw-semibold"><%= s.name %></div>
+              <a href="<%= s.url %>" target="_blank" class="text-muted small text-truncate d-block" style="max-width:260px">
+                <i class="bi bi-link-45deg"></i> <%= s.url %>
+              </a>
+              <% if (s.description) { %>
+                <small class="text-secondary"><%= s.description.substring(0, 80) %><%= s.description.length > 80 ? '...' : '' %></small>
+              <% } %>
+            </td>
+            <td>
+              <% if (s.state || s.city) { %>
+                <span class="badge bg-info text-dark"><%= [s.city, s.state].filter(Boolean).join(' — ') %></span>
+              <% } else { %>
+                <span class="text-muted small">Nacional</span>
+              <% } %>
+            </td>
+            <td>
+              <small class="text-muted">
+                <%= new Date(s.start_date).toLocaleDateString('pt-BR') %> até
+                <%= new Date(s.end_date).toLocaleDateString('pt-BR') %>
+              </small>
+            </td>
+            <td><span class="fw-bold text-primary"><%= s.click_count %></span></td>
+            <td>
+              <% if (s.isActive) { %>
+                <span class="badge bg-success">Ativo</span>
+              <% } else if (!s.is_active) { %>
+                <span class="badge bg-secondary">Desativado</span>
+              <% } else { %>
+                <span class="badge bg-warning text-dark">Expirado</span>
+              <% } %>
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button class="btn btn-outline-primary btn-sm" onclick='openSponsorModal(<%- JSON.stringify(s) %>)'>
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteSponsor(<%= s.id %>)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<!-- Modal -->
+<div class="modal fade" id="sponsorModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sponsorModalTitle">Novo Patrocínio</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="sponsorForm">
+        <div class="modal-body">
+          <input type="hidden" id="sponsorId">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Nome do anunciante <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="sName" placeholder="Ex: Loja do João" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Status</label>
+              <select class="form-select" id="sActive">
+                <option value="true">Ativo</option>
+                <option value="false">Pausado</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">URL de destino <span class="text-danger">*</span></label>
+              <input type="url" class="form-control" id="sUrl" placeholder="https://..." required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Descrição do anúncio</label>
+              <textarea class="form-control" id="sDesc" rows="2" placeholder="Breve descrição exibida no resultado patrocinado"></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Estado (filtro opcional)</label>
+              <select class="form-select" id="sState">
+                <option value="">Todos os estados</option>
+                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
+                  <option value="<%= uf %>"><%= uf %> — <%= nome %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Cidade (filtro opcional)</label>
+              <input type="text" class="form-control" id="sCity" placeholder="Ex: Cujubim">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Início <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="sStart" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Fim <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="sEnd" required>
+            </div>
+          </div>
+          <div class="alert alert-info mt-3 mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>
+            Deixe Estado e Cidade vazios para exibir o patrocínio em todas as localidades.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const sponsorModal = new bootstrap.Modal(document.getElementById('sponsorModal'));
+
+function openSponsorModal(s) {
+  document.getElementById('sponsorModalTitle').textContent = s ? 'Editar Patrocínio' : 'Novo Patrocínio';
+  document.getElementById('sponsorId').value = s ? s.id : '';
+  document.getElementById('sName').value = s ? s.name : '';
+  document.getElementById('sUrl').value = s ? s.url : '';
+  document.getElementById('sDesc').value = s ? (s.description || '') : '';
+  document.getElementById('sState').value = s ? (s.state || '') : '';
+  document.getElementById('sCity').value = s ? (s.city || '') : '';
+  document.getElementById('sStart').value = s ? s.start_date : new Date().toISOString().slice(0, 10);
+  document.getElementById('sEnd').value = s ? s.end_date : '';
+  document.getElementById('sActive').value = s ? String(s.is_active) : 'true';
+  sponsorModal.show();
+}
+
+document.getElementById('sponsorForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('sponsorId').value;
+  const payload = {
+    name: document.getElementById('sName').value,
+    url: document.getElementById('sUrl').value,
+    description: document.getElementById('sDesc').value,
+    state: document.getElementById('sState').value || null,
+    city: document.getElementById('sCity').value || null,
+    start_date: document.getElementById('sStart').value,
+    end_date: document.getElementById('sEnd').value,
+    is_active: document.getElementById('sActive').value === 'true',
+  };
+  try {
+    if (id) {
+      await axios.put('/api/admin/sponsors/' + id, payload);
+    } else {
+      await axios.post('/api/admin/sponsors', payload);
+    }
+    sponsorModal.hide();
+    location.reload();
+  } catch (err) {
+    alert('Erro: ' + (err.response?.data?.error || err.message));
+  }
+});
+
+async function deleteSponsor(id) {
+  if (!confirm('Excluir este patrocínio?')) return;
+  try {
+    await axios.delete('/api/admin/sponsors/' + id);
+    location.reload();
+  } catch (err) {
+    alert('Erro: ' + (err.response?.data?.error || err.message));
+  }
+}
+</script>

@@ -62,6 +62,7 @@ const CatalogDocument = (sequelize) => {
     pagina_origem: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      references: null,
     },
     row_hash: {
       type: DataTypes.STRING(64),

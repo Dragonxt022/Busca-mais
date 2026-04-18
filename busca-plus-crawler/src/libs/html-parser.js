@@ -8,23 +8,194 @@ class HtmlParser {
   constructor(html, baseUrl) {
     this.$ = cheerio.load(html);
     this.baseUrl = baseUrl;
+    this.primaryContentCache = null;
+  }
+
+  normalizeComparisonText(text) {
+    return this.cleanText(text)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  getUrlSlugText() {
+    try {
+      const parsed = new URL(this.baseUrl);
+      const lastSegment = decodeURIComponent(
+        parsed.pathname.split('/').filter(Boolean).pop() || ''
+      );
+
+      return this.normalizeComparisonText(
+        lastSegment
+          .replace(/\.[a-z0-9]+$/i, '')
+          .replace(/[-_]+/g, ' ')
+      );
+    } catch {
+      return '';
+    }
+  }
+
+  getMetaTitle() {
+    const $ = this.$;
+
+    const candidates = [
+      $('meta[property="og:title"]').attr('content'),
+      $('meta[name="twitter:title"]').attr('content'),
+      $('title').first().text(),
+    ];
+
+    return candidates.map((value) => this.cleanText(value)).find(Boolean) || '';
+  }
+
+  stringsAreRelated(left, right) {
+    const normalizedLeft = this.normalizeComparisonText(left);
+    const normalizedRight = this.normalizeComparisonText(right);
+
+    if (!normalizedLeft || !normalizedRight) {
+      return false;
+    }
+
+    if (normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft)) {
+      return true;
+    }
+
+    const leftTokens = normalizedLeft.split(/\s+/).filter((token) => token.length >= 4);
+    const rightTokens = new Set(normalizedRight.split(/\s+/).filter((token) => token.length >= 4));
+    const overlap = leftTokens.filter((token) => rightTokens.has(token)).length;
+
+    return overlap >= Math.max(2, Math.floor(Math.min(leftTokens.length, rightTokens.size) / 2));
+  }
+
+  getRootText($root) {
+    if (!$root || !$root.length) {
+      return '';
+    }
+
+    return this.cleanText($root.text());
+  }
+
+  getRootTitle($root) {
+    if (!$root || !$root.length) {
+      return '';
+    }
+
+    const title = $root.find('h1, .post-title, .entry-title, .article-title, .elementor-heading-title').first().text();
+    return this.cleanText(title);
+  }
+
+  scoreContentRoot($root, metaTitle, urlSlug) {
+    if (!$root || !$root.length || this.isInExcludedArea($root)) {
+      return 0;
+    }
+
+    const text = this.getRootText($root);
+    if (!text || text.length < 180) {
+      return 0;
+    }
+
+    const tagName = ($root.get(0)?.tagName || '').toLowerCase();
+    const rootTitle = this.getRootTitle($root);
+    const paragraphCount = $root.find('p').length;
+    const headingCount = $root.find('h1, h2, h3').length;
+    const imageCount = $root.find('img').length;
+
+    let score = Math.min(60, Math.floor(text.length / 120));
+    if (tagName === 'article') score += 40;
+    if (tagName === 'main') score += 25;
+    if (rootTitle) score += 24;
+    if (headingCount > 0) score += Math.min(18, headingCount * 6);
+    if (paragraphCount >= 3) score += Math.min(24, paragraphCount * 3);
+    if (imageCount > 0) score += 8;
+    if (metaTitle && rootTitle && this.stringsAreRelated(rootTitle, metaTitle)) score += 60;
+    if (metaTitle && text.includes(metaTitle.slice(0, 60))) score += 18;
+    const hasMatchingLink = urlSlug && $root.find('a[href]').filter((_, element) => {
+      const href = this.$(element).attr('href') || '';
+      return this.normalizeComparisonText(href).includes(urlSlug);
+    }).length > 0;
+
+    if (urlSlug && (this.normalizeComparisonText(text).includes(urlSlug) || hasMatchingLink)) {
+      score += 24;
+    }
+
+    return score;
+  }
+
+  findPrimaryContentRoot() {
+    if (this.primaryContentCache) {
+      return this.primaryContentCache;
+    }
+
+    const $ = this.$;
+    const metaTitle = this.getMetaTitle();
+    const urlSlug = this.getUrlSlugText();
+    const candidates = [];
+    const seen = new Set();
+
+    const articleFromUrl = this.findArticleForCurrentUrl($);
+    if (articleFromUrl && articleFromUrl.length) {
+      candidates.push(articleFromUrl.first());
+    }
+
+    [
+      '[data-elementor-type="single-post"]',
+      'main article',
+      'article.post',
+      'article',
+      '.single-post',
+      '.post-content',
+      '.entry-content',
+      '.article-content',
+      '.news-content',
+      '.content-body',
+      'main',
+      '#content',
+      '.content',
+      '#main',
+      '.main',
+    ].forEach((selector) => {
+      $(selector).each((_, element) => {
+        const root = $(element);
+        const key = root.html();
+
+        if (!key || seen.has(key)) {
+          return;
+        }
+
+        seen.add(key);
+        candidates.push(root);
+      });
+    });
+
+    let bestRoot = null;
+    let bestScore = 0;
+
+    candidates.forEach((candidate) => {
+      const score = this.scoreContentRoot(candidate, metaTitle, urlSlug);
+      if (score > bestScore) {
+        bestScore = score;
+        bestRoot = candidate;
+      }
+    });
+
+    this.primaryContentCache = bestScore >= 45 ? bestRoot : null;
+    return this.primaryContentCache;
   }
 
   /**
    * Extracts the title of the page
+   * Prioritizes the title from the article/content area
    * @returns {string|null}
    */
   extractTitle() {
-    // Try og:title first
-    let title = this.$('meta[property="og:title"]').attr('content');
-    if (title) return this.cleanText(title);
+    const $ = this.$;
+    const primaryRoot = this.findPrimaryContentRoot();
+    const rootTitle = this.getRootTitle(primaryRoot);
+    if (rootTitle) return rootTitle;
 
-    // Try twitter:title
-    title = this.$('meta[name="twitter:title"]').attr('content');
-    if (title) return this.cleanText(title);
+    let title = this.getMetaTitle();
+    if (title) return title;
 
-    // Try <title> tag
-    title = this.$('title').first().text();
+    title = $('h1').first().text();
     if (title) return this.cleanText(title);
 
     return null;
@@ -46,6 +217,18 @@ class HtmlParser {
     // Try twitter:description
     description = this.$('meta[name="twitter:description"]').attr('content');
     if (description) return this.cleanText(description);
+
+    const primaryRoot = this.findPrimaryContentRoot();
+    if (primaryRoot && primaryRoot.length) {
+      const firstParagraph = primaryRoot.find('p').filter((_, el) => {
+        const text = this.cleanText(this.$(el).text());
+        return text.length >= 80;
+      }).first().text();
+
+      if (firstParagraph) {
+        return this.cleanText(firstParagraph);
+      }
+    }
 
     return null;
   }
@@ -168,50 +351,80 @@ class HtmlParser {
 
   /**
    * Extracts the main content text from the page
+   * Tries to find the content specific to this URL
    * @returns {string}
    */
   extractContentText() {
-    // Remove unwanted elements
     const $ = this.$;
-    
-    // Remove script, style, nav, footer, header, aside, etc.
     $('script, style, nav, footer, header, aside, form, iframe, noscript').remove();
-    
-    // Remove hidden elements
     $('[style*="display: none"], [style*="display:none"], [hidden]').remove();
-    
-    // Try to find main content areas
-    let content = '';
-    
-    // Try article tag
-    if ($('article').length) {
-      content = $('article').first().text();
-    }
-    
-    // Try main tag
+
+    const primaryRoot = this.findPrimaryContentRoot();
+    let content = this.getRootText(primaryRoot);
+
     if (!content && $('main').length) {
-      content = $('main').first().text();
+      content = this.cleanText($('main').first().text());
     }
-    
-    // Try role="main"
-    if (!content && $('[role="main"]').length) {
-      content = $('[role="main"]').first().text();
+
+    if (!content && $('article').length) {
+      content = this.cleanText($('article').first().text());
     }
-    
-    // Try id="content" or class="content"
+
     if (!content) {
-      const contentEl = $('#content, .content, #main, .main').first();
-      if (contentEl.length) {
-        content = contentEl.text();
+      content = this.cleanText($('body').text());
+    }
+
+    return this.cleanText(content);
+  }
+
+  /**
+   * Finds the article element that corresponds to the current URL
+   * @param {Function} $ - cheerio selector
+   * @returns {Object|null}
+   */
+  findArticleForCurrentUrl($) {
+    const url = this.baseUrl;
+    const urlSlug = url.split('/').filter(Boolean).pop() || '';
+    const normalizedSlug = this.normalizeComparisonText(urlSlug.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' '));
+    const metaTitle = this.getMetaTitle();
+    
+    const articleWithPermalink = $('article').filter((_, el) => {
+      const $el = $(el);
+      const href = $el.find('a[href]').filter((__, link) => {
+        const linkHref = $(link).attr('href') || '';
+        return this.normalizeComparisonText(linkHref).includes(normalizedSlug);
+      }).first().attr('href');
+      const dataPermalink = $el.attr('data-permalink') || $el.attr('data-url');
+      return dataPermalink === url || (href && this.normalizeComparisonText(href).includes(normalizedSlug));
+    });
+    
+    if (articleWithPermalink.length) {
+      return articleWithPermalink.first();
+    }
+    
+    const postsWithH1 = $('article, .post, .entry').filter((_, el) => {
+      const $el = $(el);
+      const h1 = $el.find('h1, h2.post-title, .entry-title').first();
+      if (h1.length && metaTitle) {
+        const h1Text = h1.text().trim();
+        return h1Text === metaTitle || metaTitle.includes(h1Text) || h1Text.includes(metaTitle.substring(0, 30));
+      }
+      return false;
+    });
+    
+    if (postsWithH1.length) {
+      return postsWithH1.first();
+    }
+    
+    const firstArticle = $('article').first();
+    if (firstArticle.length) {
+      const h1 = firstArticle.find('h1').first();
+      if (h1.length) {
+        return firstArticle;
       }
     }
     
-    // Fallback to body
-    if (!content) {
-      content = $('body').text();
-    }
-    
-    return this.cleanText(content);
+    return null;
   }
 
   /**
@@ -263,83 +476,168 @@ class HtmlParser {
   }
 
   /**
-   * Extracts all images from the page with context
+   * Extracts the cover image (main image) from the page
+   * Prioritizes: Open Graph image > Twitter image > First image in main content
+   * @returns {Object|null} Cover image object
+   */
+  extractCoverImage() {
+    const $ = this.$;
+    const seen = new Set();
+    const primaryRoot = this.findPrimaryContentRoot();
+
+    if (primaryRoot && primaryRoot.length) {
+      const rootImage = this.extractImageFromRoot(primaryRoot);
+      if (rootImage) {
+        return rootImage;
+      }
+    }
+
+    const selectors = [
+      'meta[property="og:image"]',
+      'meta[name="twitter:image"]',
+      'meta[property="og:image:url"]',
+    ];
+
+    for (const selector of selectors) {
+      const content = $(selector).attr('content');
+      if (content) {
+        const src = this.resolveUrl(content);
+        if (src && !seen.has(src)) {
+          seen.add(src);
+          return {
+            src,
+            alt: $('meta[property="og:title"]').attr('content') || this.extractTitle() || '',
+            title: '',
+            context: 'Cover image (Open Graph)',
+            filename: src.split('/').pop().split('.')[0],
+            width: 0,
+            height: 0,
+            isOg: true,
+            isCover: true,
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  extractImageFromRoot($root) {
+    if (!$root || !$root.length) {
+      return null;
+    }
+
+    const $img = $root.find('img').filter((_, element) => {
+      const candidate = this.$(element);
+      if (this.isInExcludedArea(candidate)) {
+        return false;
+      }
+
+      const src = candidate.attr('src') || candidate.attr('data-src') || '';
+      if (!src || src.startsWith('data:')) {
+        return false;
+      }
+
+      const width = parseInt(candidate.attr('width'), 10) || 0;
+      const height = parseInt(candidate.attr('height'), 10) || 0;
+
+      if (width > 0 && height > 0 && (width < 160 || height < 160)) {
+        return false;
+      }
+
+      return true;
+    }).first();
+
+    if (!$img.length) {
+      return null;
+    }
+
+    const src = this.resolveUrl($img.attr('src') || $img.attr('data-src'));
+    if (!src) {
+      return null;
+    }
+
+    return {
+      src,
+      alt: this.cleanText($img.attr('alt')) || this.getRootTitle($root) || this.extractTitle() || '',
+      title: this.cleanText($img.attr('title')) || '',
+      context: 'Cover image (content)',
+      filename: src.split('/').pop().split('.')[0].replace(/[-_]/g, ' '),
+      width: parseInt($img.attr('width'), 10) || 0,
+      height: parseInt($img.attr('height'), 10) || 0,
+      isOg: false,
+      isCover: true,
+    };
+  }
+
+  /**
+   * Checks if an element is in a footer/sidebar area (should be excluded)
+   */
+  isInExcludedArea($el) {
+    const excludedSelectors = [
+      'footer',
+      '.footer',
+      '#footer',
+      'aside',
+      '.sidebar',
+      '#sidebar',
+      '.related-posts',
+      '.related-articles',
+      '.recommended',
+      '.more-stories',
+      '.newsletter',
+      '.social-share',
+      '.comments',
+      '#comments',
+      '.advertisement',
+      '.ad',
+      '.ads',
+    ];
+
+    for (const selector of excludedSelectors) {
+      if ($el.closest(selector).length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Extracts all images from the page with context (excluding footer/sidebar)
+   * Now returns only the cover image (main image) - 1 image only
    * @returns {Object[]} Array of image objects
    */
   extractImages() {
     const images = [];
     const seen = new Set();
-    const $ = this.$;
-    
-    this.$('img').each((_, el) => {
-      const $el = $(el);
-      let src = $el.attr('src');
-      
-      if (!src) return;
-      
-      // Resolve relative URLs
-      src = this.resolveUrl(src);
-      
-      // Skip duplicates and data URIs
-      if (seen.has(src) || src.startsWith('data:')) return;
-      seen.add(src);
-      
-      // Get image attributes
-      const alt = $el.attr('alt') || '';
-      const title = $el.attr('title') || '';
-      const width = parseInt($el.attr('width')) || 0;
-      const height = parseInt($el.attr('height')) || 0;
-      
-      // Only include images with minimum size (skip tiny icons/spacers)
-      if (width > 0 && height > 0 && (width < 50 || height < 50)) return;
-      
-      // Extract context: text from nearby elements
-      let context = '';
-      const parent = $el.parent();
-      const grandparent = parent.parent();
-      
-      // Try to get caption or nearby text
-      const nearbyText = [
-        $el.closest('figure').find('figcaption').text(),
-        $el.closest('picture').text(),
-        parent.find('p, span, div').first().text(),
-        grandparent.find('p, span').first().text(),
-      ].filter(Boolean).join(' ');
-      
-      context = this.cleanText(nearbyText) || '';
-      
-      // Extract filename from URL
-      const filename = src.split('/').pop().split('.')[0].replace(/[-_]/g, ' ');
-      
-      images.push({
-        src,
-        alt: this.cleanText(alt) || '',
-        title: this.cleanText(title) || '',
-        context: (context || '').substring(0, 200),
-        filename: filename,
-        width,
-        height,
-      });
-    });
-    
-    // Also check for Open Graph images
-    const ogImage = this.$('meta[property="og:image"]').attr('content');
-    if (ogImage && !seen.has(ogImage)) {
-      const ogTitle = this.$('meta[property="og:title"]').attr('content') || this.extractTitle() || '';
-      images.unshift({
-        src: this.resolveUrl(ogImage),
-        alt: ogTitle,
-        title: '',
-        context: ogTitle,
-        filename: '',
-        width: 0,
-        height: 0,
-        isOg: true,
-      });
+    const primaryRoot = this.findPrimaryContentRoot();
+    const rootImage = this.extractImageFromRoot(primaryRoot);
+
+    if (rootImage?.src) {
+      seen.add(rootImage.src);
+      images.push(rootImage);
     }
-    
-    // Limit to 20 images per page
-    return images.slice(0, 20);
+
+    if (images.length === 0) {
+      const ogImage = this.$('meta[property="og:image"]').attr('content');
+      if (ogImage) {
+        const resolvedOg = this.resolveUrl(ogImage);
+        if (resolvedOg) seen.add(resolvedOg);
+        images.push({
+          src: resolvedOg,
+          alt: this.$('meta[property="og:title"]').attr('content') || this.extractTitle() || '',
+          title: '',
+          context: 'Cover image',
+          filename: '',
+          width: 0,
+          height: 0,
+          isOg: true,
+        });
+      }
+    }
+
+    return images.slice(0, 1);
   }
 
   /**
@@ -411,25 +709,18 @@ class HtmlParser {
 
   extractContentHtml() {
     const $ = this.$;
-    
-    // Remove unwanted elements
     $('script, style, nav, footer, header, aside, form, iframe, noscript').remove();
     $('[style*="display: none"], [style*="display:none"], [hidden]').remove();
-    
-    // Try to find main content
-    if ($('article').length) {
-      return $('article').first().html();
+
+    const primaryRoot = this.findPrimaryContentRoot();
+    if (primaryRoot && primaryRoot.length) {
+      return primaryRoot.html();
     }
-    
+
     if ($('main').length) {
       return $('main').first().html();
     }
-    
-    const contentEl = $('#content, .content, #main, .main').first();
-    if (contentEl.length) {
-      return contentEl.html();
-    }
-    
+
     return $('body').html();
   }
 }

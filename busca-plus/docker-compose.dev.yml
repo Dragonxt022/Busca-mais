@@ -1,26 +1,57 @@
-version: '3.8'
-
 services:
-  # Search UI - Development with hot reload
-  search-ui:
-    image: node:18-alpine
-    container_name: busca-plus-search-dev
-    working_dir: /app
-    command: sh -c "npm install && npx nodemon src/index.js"
+  postgres:
+    image: postgres:15-alpine
+    container_name: busca-plus-postgres
     environment:
-      NODE_ENV: development
-      TYPESENSE_HOST: localhost
-      TYPESENSE_PORT: 8108
-      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-buscaplus_api_key}
-      CRAWLER_API_URL: http://localhost:3001
+      POSTGRES_USER: buscaplus
+      POSTGRES_PASSWORD: buscaplus123
+      POSTGRES_DB: buscaplus
     ports:
-      - "3000:3000"
+      - "5432:5432"
     volumes:
-      - ../busca-plus-search:/app
-      - /app/node_modules
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buscaplus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: busca-plus-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  typesense:
+    image: typesense/typesense:0.24.1
+    container_name: busca-plus-typesense
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-xyz}
+      TYPESENSE_ENABLE_CORS: "true"
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense_data:/data
     networks:
       - busca-plus-network
 
 networks:
   busca-plus-network:
-    external: true
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  typesense_data:

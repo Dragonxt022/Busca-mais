@@ -8,6 +8,8 @@ router.post('/', AdminCatalogController.createSource);
 router.post('/clear-queue', AdminCatalogController.clearQueue);
 router.post('/reset-all', AdminCatalogController.resetAll);
 router.post('/:id/run', AdminCatalogController.runCatalog);
+router.post('/:id/index', AdminCatalogController.queueIndex);
 router.get('/:id/documents', AdminCatalogController.showDocuments);
+router.delete('/:id', AdminCatalogController.deleteSource);
 
 module.exports = router;

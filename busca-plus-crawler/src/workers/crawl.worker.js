@@ -3,10 +3,9 @@ const { redisConfig } = require('../config/redis');
 const { logger } = require('../libs/logger');
 const Crawler = require('../libs/crawler');
 const indexer = require('../libs/indexer');
-const { Page, Source, CrawlJob } = require('../models');
+const { Page, Source, CrawlJob, CatalogDocument, CatalogSource } = require('../models');
 const { crawlQueue, indexQueue, discoverQueue, QUEUE_NAMES } = require('../libs/queue');
-const sequelize = require('../config/database');
-const { Op } = require('sequelize');
+const catalogDocumentContentService = require('../modules/transparency/services/catalog-document-content.service');
 
 class CrawlWorker {
   constructor() {
@@ -16,9 +15,6 @@ class CrawlWorker {
     this.discoverWorker = null;
   }
 
-  /**
-   * Start all workers
-   */
   async start() {
     await this.startCrawlWorker();
     await this.startIndexWorker();
@@ -26,32 +22,23 @@ class CrawlWorker {
     logger.info('All workers started');
   }
 
-  /**
-   * Start the crawl worker
-   */
   async startCrawlWorker() {
     this.crawlWorker = new Worker(
       QUEUE_NAMES.CRAWL,
       async (job) => {
-        const { pageId, url, sourceId, jobId } = job.data;
+        const { pageId, url, sourceId, crawlJobId } = job.data;
         logger.info(`Processing crawl job ${job.id}: ${url}`);
 
         try {
+          const source = await Source.findByPk(sourceId);
+          const downloadImages = source ? await source.shouldDownloadImages() : false;
+
           const result = await this.crawler.crawlPage(url, {
             extractLinks: false,
+            downloadImages,
           });
 
           if (!result.success) {
-            if (jobId) {
-              await CrawlJob.update(
-                {
-                  status: 'failed',
-                  error_message: result.error,
-                  completed_at: new Date(),
-                },
-                { where: { id: jobId } }
-              );
-            }
             await Page.update(
               {
                 has_error: true,
@@ -60,6 +47,7 @@ class CrawlWorker {
               },
               { where: { id: pageId } }
             );
+
             throw new Error(result.error);
           }
 
@@ -73,7 +61,7 @@ class CrawlWorker {
             last_crawled_at: new Date(),
             status_code: result.statusCode,
             response_time_ms: result.responseTimeMs,
-            images: result.processedImages || null,
+            images: downloadImages ? (result.processedImages || null) : null,
             language: result.language,
             metadata_json: result.metadata,
             has_error: false,
@@ -82,17 +70,22 @@ class CrawlWorker {
 
           await Page.update(updateData, { where: { id: pageId } });
 
-          if (jobId) {
-            await CrawlJob.update(
-              {
-                status: 'completed',
-                completed_at: new Date(),
-              },
-              { where: { id: jobId } }
-            );
+          // Update job progress
+          if (crawlJobId) {
+            const crawlJob = await CrawlJob.findByPk(crawlJobId);
+            if (crawlJob) {
+              const newProcessed = (crawlJob.processed_pages || 0) + 1;
+              const isComplete = newProcessed >= crawlJob.total_pages;
+              
+              await crawlJob.update({
+                processed_pages: newProcessed,
+                status: isComplete ? 'completed' : 'running',
+                finished_at: isComplete ? new Date() : null,
+              });
+            }
           }
 
-          await indexQueue.add('index-page', { pageId }, { jobId: `index-${pageId}` });
+          await indexQueue.add('index-page', { pageId }, { jobId: `index-${pageId}-${Date.now()}` });
 
           logger.info(`Crawl completed for ${url}`);
           return result;
@@ -120,17 +113,79 @@ class CrawlWorker {
     });
   }
 
-  /**
-   * Start the index worker
-   */
   async startIndexWorker() {
     this.indexWorker = new Worker(
       QUEUE_NAMES.INDEX,
       async (job) => {
-        const { pageId } = job.data;
-        logger.info(`Processing index job ${job.id}: page ${pageId}`);
+        const { pageId, catalogDocumentId } = job.data;
+        logger.info(`Processing index job ${job.id}`);
 
         try {
+          if (catalogDocumentId) {
+            const catalogDocument = await CatalogDocument.findByPk(catalogDocumentId, {
+              include: [{ model: CatalogSource, as: 'source' }],
+            });
+
+            if (!catalogDocument) {
+              throw new Error(`Catalog document ${catalogDocumentId} not found`);
+            }
+
+            const currentMetadata = catalogDocument.metadata_json || {};
+
+            if (catalogDocument.download_url) {
+              try {
+                const extractedContent = await catalogDocumentContentService.extractFromDocumentUrl(catalogDocument.download_url);
+
+                await catalogDocument.update({
+                  extension: String(catalogDocument.extension || extractedContent.type || '').toUpperCase() || catalogDocument.extension,
+                  metadata_json: {
+                    ...currentMetadata,
+                    extracted_at: new Date().toISOString(),
+                    extracted_format: extractedContent.type,
+                    extracted_markdown: extractedContent.markdown,
+                    extracted_pages: extractedContent.numpages,
+                    extracted_text: extractedContent.text,
+                    extracted_text_length: extractedContent.textLength,
+                    extraction_info: extractedContent.info,
+                    last_extraction_error: null,
+                    last_index_error: null,
+                  },
+                });
+              } catch (error) {
+                logger.warn(`Falha ao extrair texto do documento ${catalogDocumentId}: ${error.message}`);
+                await catalogDocument.update({
+                  metadata_json: {
+                    ...currentMetadata,
+                    extracted_at: new Date().toISOString(),
+                    last_extraction_error: error.message,
+                  },
+                });
+              }
+            }
+
+            await catalogDocument.reload({
+              include: [{ model: CatalogSource, as: 'source' }],
+            });
+
+            const indexed = await indexer.indexCatalogDocument(catalogDocument);
+            if (!indexed) {
+              throw new Error('Catalog indexing failed');
+            }
+
+            const updatedMetadata = (await CatalogDocument.findByPk(catalogDocumentId)).metadata_json || currentMetadata;
+            await catalogDocument.update({
+              status: 'indexed',
+              metadata_json: {
+                ...updatedMetadata,
+                indexed_at: new Date().toISOString(),
+                last_index_error: null,
+              },
+            });
+
+            logger.info(`Catalog index completed for document ${catalogDocumentId}`);
+            return indexed;
+          }
+
           const page = await Page.findByPk(pageId, {
             include: [{ model: Source, as: 'source' }],
           });
@@ -144,9 +199,24 @@ class CrawlWorker {
             throw new Error('Indexing failed');
           }
 
+          await page.update({ last_indexed_at: new Date() });
+
           logger.info(`Index completed for page ${pageId}`);
           return result;
         } catch (error) {
+          if (catalogDocumentId) {
+            const catalogDocument = await CatalogDocument.findByPk(catalogDocumentId).catch(() => null);
+            if (catalogDocument) {
+              await catalogDocument.update({
+                status: 'error',
+                metadata_json: {
+                  ...(catalogDocument.metadata_json || {}),
+                  last_index_error: error.message,
+                },
+              }).catch(() => {});
+            }
+          }
+
           logger.error(`Index job ${job.id} failed:`, error.message);
           throw error;
         }
@@ -166,23 +236,26 @@ class CrawlWorker {
     });
   }
 
-  /**
-   * Start the discover worker
-   */
   async startDiscoverWorker() {
     this.discoverWorker = new Worker(
       QUEUE_NAMES.DISCOVER,
       async (job) => {
-        const { sourceId, startUrl, maxPages = 50 } = job.data;
+        const { sourceId, startUrl, maxPages = 50, jobId } = job.data;
         logger.info(`Processing discover job ${job.id}: source ${sourceId}`);
 
         try {
+          if (jobId) {
+            await CrawlJob.update(
+              { status: 'running', started_at: new Date() },
+              { where: { id: jobId } }
+            );
+          }
+
           const source = await Source.findByPk(sourceId);
           if (!source) {
             throw new Error(`Source ${sourceId} not found`);
           }
 
-          // Discover links from the start URL
           const links = await this.crawler.discoverLinks(startUrl, {
             maxLinks: maxPages,
             sameDomain: true,
@@ -190,7 +263,6 @@ class CrawlWorker {
 
           logger.info(`Discovered ${links.length} links from ${startUrl}`);
 
-          // Create pages for new URLs
           let newCount = 0;
           for (const link of links) {
             const urlHash = require('crypto').createHash('sha256').update(link).digest('hex');
@@ -204,8 +276,7 @@ class CrawlWorker {
             });
 
             if (created) {
-              newCount++;
-              // Queue for crawling
+              newCount += 1;
               await crawlQueue.add(
                 'crawl-page',
                 { pageId: page.id, url: page.url, sourceId },
@@ -214,17 +285,31 @@ class CrawlWorker {
             }
           }
 
-          // Update source stats
           await Source.update(
-            {
-              last_crawled_at: new Date(),
-            },
+            { last_crawled_at: new Date() },
             { where: { id: sourceId } }
           );
+
+          if (jobId) {
+            await CrawlJob.update(
+              { 
+                status: 'completed', 
+                finished_at: new Date(),
+                pages_found: links.length,
+              },
+              { where: { id: jobId } }
+            );
+          }
 
           logger.info(`Discover completed: ${newCount} new pages found`);
           return { discovered: links.length, new: newCount };
         } catch (error) {
+          if (jobId) {
+            await CrawlJob.update(
+              { status: 'failed', finished_at: new Date(), error_message: error.message },
+              { where: { id: jobId } }
+            );
+          }
           logger.error(`Discover job ${job.id} failed:`, error.message);
           throw error;
         }
@@ -244,9 +329,6 @@ class CrawlWorker {
     });
   }
 
-  /**
-   * Stop all workers
-   */
   async stop() {
     if (this.crawlWorker) await this.crawlWorker.close();
     if (this.indexWorker) await this.indexWorker.close();

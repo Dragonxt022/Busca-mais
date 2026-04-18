@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu perfil - Busca+</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/profile.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+  <div class="profile-shell">
+    <header class="profile-topbar">
+      <a href="/" class="profile-logo">Busca<span>+</span></a>
+      <div class="profile-topbar-actions">
+        <button type="button" class="nav-auth-btn" data-auth-open="login">Login</button>
+        <a href="/profile" class="nav-profile-link" data-auth-profile-link="true" hidden>
+          <img src="" alt="Foto de perfil" class="nav-profile-avatar" data-auth-avatar="true">
+          <span data-auth-name="true">Meu perfil</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="profile-layout">
+      <section class="profile-hero">
+        <span class="profile-kicker">Conta Busca+</span>
+        <h1>Seu perfil de busca personalizada</h1>
+        <p>Edite seus dados, escolha uma foto e prepare sua conta para alertas, buscas mais inteligentes e futuras assinaturas com monitoramento regional.</p>
+      </section>
+
+      <section class="profile-card" data-profile-authenticated="true" hidden>
+        <div class="profile-card-header">
+          <div class="profile-avatar-block">
+            <img src="" alt="Foto de perfil" class="profile-avatar-large" data-profile-avatar-preview="true">
+            <div>
+              <strong data-profile-display-name="true">Seu nome</strong>
+              <span data-profile-display-email="true">email@exemplo.com</span>
+            </div>
+          </div>
+          <label class="profile-upload">
+            <span class="material-icons">photo_camera</span>
+            Alterar foto
+            <input type="file" accept="image/*" data-profile-photo-input="true" hidden>
+          </label>
+        </div>
+
+        <form class="profile-form" data-profile-form="true">
+          <label>
+            <span>Nome completo</span>
+            <input type="text" name="name" required>
+          </label>
+          <label>
+            <span>E-mail</span>
+            <input type="email" name="email" required>
+          </label>
+          <label>
+            <span>Telefone</span>
+            <input type="text" name="phone" placeholder="(69) 99999-9999">
+          </label>
+          <label>
+            <span>Região de interesse</span>
+            <input type="text" name="region" placeholder="Ex.: Cujubim, Rondônia ou região Norte">
+          </label>
+          <label>
+            <span>Temas que acompanha</span>
+            <textarea name="interests" rows="4" placeholder="Licitações, saúde, educação, menções ao meu nome..."></textarea>
+          </label>
+
+          <div class="profile-switches">
+            <label class="profile-switch">
+              <input type="checkbox" name="smartSearch">
+              <span>Ativar experiência mais personalizada</span>
+            </label>
+            <label class="profile-switch">
+              <input type="checkbox" name="futureAlerts">
+              <span>Quero receber alertas quando meu nome aparecer</span>
+            </label>
+          </div>
+
+          <div class="profile-actions">
+            <button type="submit" class="profile-save">Salvar perfil</button>
+            <button type="button" class="profile-logout" data-auth-logout="true">Sair</button>
+          </div>
+        </form>
+
+        <p class="profile-feedback" data-profile-feedback="true" hidden></p>
+      </section>
+
+      <section class="profile-empty" data-profile-empty="true">
+        <span class="material-icons">manage_accounts</span>
+        <h2>Entre para configurar seu perfil</h2>
+        <p>Ao criar uma conta você poderá salvar preferências, treinar a experiência da busca e se preparar para funcionalidades premium no futuro.</p>
+        <div class="profile-empty-actions">
+          <button type="button" class="profile-save" data-auth-open="register">Criar conta</button>
+          <button type="button" class="profile-ghost" data-auth-open="login">Já tenho conta</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <%- include('./partials/auth-shell') %>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/profile-ui.js"></script>
+</body>
+</html>

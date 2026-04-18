@@ -6,6 +6,47 @@
     <h1 class="h2 d-inline"><i class="bi bi-file-earmark-pdf me-2"></i><%= title %></h1>
     <span class="badge bg-secondary ms-2"><%= documents ? documents.length : 0 %> documentos</span>
   </div>
+  <div class="btn-group">
+    <form action="/admin/catalog/<%= source.id %>/index" method="POST">
+      <input type="hidden" name="only_pending" value="on">
+      <button type="submit" class="btn btn-sm btn-outline-dark">
+        <i class="bi bi-play-circle me-1"></i>Continuar Indexacao
+      </button>
+    </form>
+    <form action="/admin/catalog/<%= source.id %>/index" method="POST" class="ms-2">
+      <button type="submit" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-search me-1"></i>Indexar Tudo
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <strong>Progresso da indexacao</strong>
+      <span class="badge bg-secondary"><%= progress.progressPercent %>%</span>
+    </div>
+    <div class="progress" style="height: 10px;">
+      <div
+        class="progress-bar bg-success"
+        role="progressbar"
+        style="width: <%= progress.progressPercent %>%"
+        aria-valuenow="<%= progress.progressPercent %>"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      ></div>
+    </div>
+    <div class="row mt-3 g-3">
+      <div class="col-md-3"><small class="text-muted d-block">Total</small><strong><%= progress.total %></strong></div>
+      <div class="col-md-3"><small class="text-muted d-block">Indexados</small><strong class="text-success"><%= progress.indexed %></strong></div>
+      <div class="col-md-3"><small class="text-muted d-block">Pendentes</small><strong class="text-warning"><%= progress.pending %></strong></div>
+      <div class="col-md-3"><small class="text-muted d-block">Erros</small><strong class="text-danger"><%= progress.error %></strong></div>
+    </div>
+    <small class="text-muted d-block mt-3">
+      O estado fica salvo por documento. Se a execucao parar, basta continuar a indexacao pelos pendentes.
+    </small>
+  </div>
 </div>
 
 <div class="card">
@@ -15,12 +56,12 @@
         <thead class="table-light">
           <tr>
             <th>Tipo</th>
-            <th>Número/Ano</th>
+            <th>Numero/Ano</th>
             <th>Data Doc.</th>
             <th>Data Pub.</th>
-            <th>Descrição</th>
+            <th>Descricao</th>
             <th>Status</th>
-            <th>Ações</th>
+            <th>Acoes</th>
           </tr>
         </thead>
         <tbody>
@@ -50,13 +91,16 @@
                 </td>
                 <td>
                   <div class="btn-group btn-group-sm">
+                    <a href="/admin/pages/<%= doc.id %>?type=catalog" class="btn btn-outline-primary" title="Ver Detalhes">
+                      <i class="bi bi-eye"></i>
+                    </a>
                     <% if (doc.download_url) { %>
                       <a href="<%= doc.download_url %>" target="_blank" class="btn btn-outline-danger" title="Baixar PDF">
                         <i class="bi bi-file-pdf"></i>
                       </a>
                     <% } %>
                     <% if (doc.detalhe_url) { %>
-                      <a href="<%= doc.detalhe_url %>" target="_blank" class="btn btn-outline-info" title="Ver Detalhe">
+                      <a href="<%= doc.detalhe_url %>" target="_blank" class="btn btn-outline-info" title="Ver Site Original">
                         <i class="bi bi-box-arrow-up-right"></i>
                       </a>
                     <% } %>
@@ -67,6 +111,10 @@
                 <tr class="table-secondary">
                   <td colspan="7">
                     <small><strong>Ementa:</strong> <%= doc.ementa %></small>
+                    <% if (doc.metadata_json && doc.metadata_json.last_index_error) { %>
+                      <br>
+                      <small class="text-danger"><strong>Erro de indexacao:</strong> <%= doc.metadata_json.last_index_error %></small>
+                    <% } %>
                   </td>
                 </tr>
               <% } %>

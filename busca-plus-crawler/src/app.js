@@ -9,13 +9,16 @@ const sourceRoutes = require('./api/routes/source.routes');
 const pageRoutes = require('./api/routes/page.routes');
 const jobRoutes = require('./api/routes/job.routes');
 const adminApiRoutes = require('./api/routes/admin/stats.routes');
+const aiSettingsApiRoutes = require('./api/routes/admin/ai-settings.routes');
 const adminRoutes = require('./api/routes/admin/index');
 const schedulerRoutes = require('./api/routes/scheduler.routes');
 const adminCatalogRoutes = require('./modules/transparency/routes/admin-catalog-routes');
+const sponsorRoutes = require('./api/routes/sponsor.routes');
 
 const { errorHandler, notFoundHandler } = require('./api/middlewares/error.middleware');
 
 const app = express();
+app.locals.logger = logger;
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -47,8 +50,10 @@ app.use('/api/pages', pageRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/admin', adminApiRoutes);
+app.use('/api/admin', aiSettingsApiRoutes);
 
 app.use('/admin/catalog', adminCatalogRoutes);
+app.use('/', sponsorRoutes);
 app.use('/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
