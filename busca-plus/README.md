@@ -147,3 +147,17 @@ Se precisar resetar tudo:
 npm run infra:clean
 npm run dev:boot
 ```
+
+
+## Seed de Patrocinios
+
+```bash
+cd c:\apps\teste\busca-plus-crawler
+npm run seed:sponsors
+
+```
+## Desfazer
+```bash
+ 
+npx sequelize-cli db:seed:undo --seed seeders/20260418000100-demo-sponsors.js
+```

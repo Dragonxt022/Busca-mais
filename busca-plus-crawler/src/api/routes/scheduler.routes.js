@@ -73,7 +73,8 @@ router.post('/trigger/:sourceId', async (req, res) => {
     await discoverQueue.add('discover-pages', {
       sourceId: source.id,
       startUrl: source.base_url,
-      maxPages: source.crawl_depth * 50,
+      maxDepth: source.crawl_depth,
+      maxPages: source.max_pages || source.crawl_depth * 50,
     });
 
     res.json({ success: true, message: 'Crawl triggered' });

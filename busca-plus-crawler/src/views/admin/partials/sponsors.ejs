@@ -1,26 +1,36 @@
-<div class="d-flex justify-content-between align-items-center pb-2 mb-4 border-bottom">
-  <h1 class="h2"><i class="bi bi-megaphone me-2"></i>Patrocínios</h1>
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
+  <h1 class="h4 mb-0 fw-bold"><i class="bi bi-megaphone me-2 text-primary"></i>Patrocinios</h1>
   <div class="d-flex gap-2">
     <a href="/admin/sponsors/analytics" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-bar-chart me-1"></i> Analytics
+      <i class="bi bi-bar-chart me-1"></i>Analytics
     </a>
     <button class="btn btn-primary btn-sm" onclick="openSponsorModal()">
-      <i class="bi bi-plus-lg me-1"></i> Novo Patrocínio
+      <i class="bi bi-plus-lg me-1"></i>Novo Patrocínio
     </button>
   </div>
 </div>
 
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-md-3">
-    <div class="card stat-card text-center p-3">
-      <div class="fs-3 fw-bold text-primary"><%= stats.total %></div>
-      <div class="text-muted small">Total cadastrado</div>
+    <div class="card stat-card">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-megaphone"></i></div>
+        <div>
+          <div class="fw-bold fs-5"><%= stats.total %></div>
+          <small class="text-muted">Total cadastrado</small>
+        </div>
+      </div>
     </div>
   </div>
   <div class="col-sm-6 col-md-3">
-    <div class="card stat-card text-center p-3">
-      <div class="fs-3 fw-bold text-success"><%= stats.active %></div>
-      <div class="text-muted small">Ativos agora</div>
+    <div class="card stat-card">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="icon bg-success bg-opacity-10 text-success"><i class="bi bi-broadcast"></i></div>
+        <div>
+          <div class="fw-bold fs-5 text-success"><%= stats.active %></div>
+          <small class="text-muted">Ativos agora</small>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -28,17 +38,17 @@
 <% if (!data || data.length === 0) { %>
   <div class="text-center py-5 text-muted">
     <i class="bi bi-megaphone fs-1 d-block mb-3 opacity-25"></i>
-    <p>Nenhum patrocínio cadastrado ainda.</p>
-    <button class="btn btn-primary" onclick="openSponsorModal()">Cadastrar primeiro patrocínio</button>
+    <p>Nenhum patrocinio cadastrado ainda.</p>
+    <button class="btn btn-primary" onclick="openSponsorModal()">Cadastrar primeiro patrocinio</button>
   </div>
 <% } else { %>
   <div class="table-responsive">
     <table class="table table-hover align-middle">
       <thead class="table-dark">
         <tr>
-          <th>Nome / Descrição</th>
-          <th>Localização</th>
-          <th>Período</th>
+          <th>Nome / Descricao</th>
+          <th>Localizacao</th>
+          <th>Periodo</th>
           <th>Cliques</th>
           <th>Status</th>
           <th></th>
@@ -58,14 +68,14 @@
             </td>
             <td>
               <% if (s.state || s.city) { %>
-                <span class="badge bg-info text-dark"><%= [s.city, s.state].filter(Boolean).join(' — ') %></span>
+                <span class="badge bg-info text-dark"><%= [s.city, s.state].filter(Boolean).join(' - ') %></span>
               <% } else { %>
                 <span class="text-muted small">Nacional</span>
               <% } %>
             </td>
             <td>
               <small class="text-muted">
-                <%= new Date(s.start_date).toLocaleDateString('pt-BR') %> até
+                <%= new Date(s.start_date).toLocaleDateString('pt-BR') %> ate
                 <%= new Date(s.end_date).toLocaleDateString('pt-BR') %>
               </small>
             </td>
@@ -81,7 +91,7 @@
             </td>
             <td>
               <div class="d-flex gap-1">
-                <button class="btn btn-outline-primary btn-sm" onclick='openSponsorModal(<%- JSON.stringify(s) %>)'>
+                <button class="btn btn-outline-primary btn-sm" onclick="openSponsorModal('<%= s.id %>')">
                   <i class="bi bi-pencil"></i>
                 </button>
                 <button class="btn btn-outline-danger btn-sm" onclick="deleteSponsor(<%= s.id %>)">
@@ -96,12 +106,11 @@
   </div>
 <% } %>
 
-<!-- Modal -->
 <div class="modal fade" id="sponsorModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="sponsorModalTitle">Novo Patrocínio</h5>
+        <h5 class="modal-title" id="sponsorModalTitle">Novo Patrocinio</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <form id="sponsorForm">
@@ -110,7 +119,7 @@
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label fw-semibold">Nome do anunciante <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="sName" placeholder="Ex: Loja do João" required>
+              <input type="text" class="form-control" id="sName" placeholder="Ex: Loja do Joao" required>
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Status</label>
@@ -124,24 +133,26 @@
               <input type="url" class="form-control" id="sUrl" placeholder="https://..." required>
             </div>
             <div class="col-12">
-              <label class="form-label fw-semibold">Descrição do anúncio</label>
-              <textarea class="form-control" id="sDesc" rows="2" placeholder="Breve descrição exibida no resultado patrocinado"></textarea>
+              <label class="form-label fw-semibold">Descricao do anuncio</label>
+              <textarea class="form-control" id="sDesc" rows="2" placeholder="Breve descricao exibida no resultado patrocinado"></textarea>
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Estado (filtro opcional)</label>
               <select class="form-select" id="sState">
                 <option value="">Todos os estados</option>
-                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
-                  <option value="<%= uf %>"><%= uf %> — <%= nome %></option>
+                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapa'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceara'],['DF','Distrito Federal'],['ES','Espirito Santo'],['GO','Goias'],['MA','Maranhao'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Para'],['PB','Paraiba'],['PR','Parana'],['PE','Pernambuco'],['PI','Piaui'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondonia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','Sao Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
+                  <option value="<%= uf %>"><%= uf %> - <%= nome %></option>
                 <% }) %>
               </select>
             </div>
             <div class="col-md-4">
               <label class="form-label fw-semibold">Cidade (filtro opcional)</label>
-              <input type="text" class="form-control" id="sCity" placeholder="Ex: Cujubim">
+              <select class="form-select" id="sCity" disabled>
+                <option value="">Todas as cidades</option>
+              </select>
             </div>
             <div class="col-md-2">
-              <label class="form-label fw-semibold">Início <span class="text-danger">*</span></label>
+              <label class="form-label fw-semibold">Inicio <span class="text-danger">*</span></label>
               <input type="date" class="form-control" id="sStart" required>
             </div>
             <div class="col-md-2">
@@ -149,9 +160,20 @@
               <input type="date" class="form-control" id="sEnd" required>
             </div>
           </div>
+          <div class="col-12 mt-1">
+            <label class="form-label fw-semibold">Imagens do anúncio <small class="text-muted fw-normal">(até 5 — miniaturas exibidas nos resultados)</small></label>
+            <div class="d-flex flex-wrap gap-2 align-items-end" id="sImagesGrid"></div>
+            <div class="mt-2 d-flex gap-2 align-items-center flex-wrap">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="sAddImgBtn" onclick="triggerAddSponsorImage()">
+                <i class="bi bi-plus-lg me-1"></i>Adicionar imagem
+              </button>
+              <input type="file" accept="image/*" class="d-none" id="sAddImgFile" onchange="onAddSponsorImageFile(this)">
+              <span class="text-muted small" id="sImgCount"></span>
+            </div>
+          </div>
           <div class="alert alert-info mt-3 mb-0 small">
             <i class="bi bi-info-circle me-1"></i>
-            Deixe Estado e Cidade vazios para exibir o patrocínio em todas as localidades.
+            Deixe Estado e Cidade vazios para exibir o patrocinio em todas as localidades.
           </div>
         </div>
         <div class="modal-footer">
@@ -165,39 +187,272 @@
 
 <script>
 const sponsorModal = new bootstrap.Modal(document.getElementById('sponsorModal'));
+const sponsorLookup = {
+  <% (data || []).forEach((s, index) => { %>
+  '<%= s.id %>': <%- JSON.stringify({
+    id: s.id,
+    name: s.name || '',
+    url: s.url || '',
+    description: s.description || '',
+    state: s.state || '',
+    city: s.city || '',
+    start_date: s.start_date || '',
+    end_date: s.end_date || '',
+    is_active: !!s.is_active,
+    images: Array.isArray(s.images) ? s.images : [],
+  }) %><%= index < (data || []).length - 1 ? ',' : '' %>
+  <% }) %>
+};
 
-function openSponsorModal(s) {
-  document.getElementById('sponsorModalTitle').textContent = s ? 'Editar Patrocínio' : 'Novo Patrocínio';
-  document.getElementById('sponsorId').value = s ? s.id : '';
-  document.getElementById('sName').value = s ? s.name : '';
-  document.getElementById('sUrl').value = s ? s.url : '';
-  document.getElementById('sDesc').value = s ? (s.description || '') : '';
-  document.getElementById('sState').value = s ? (s.state || '') : '';
-  document.getElementById('sCity').value = s ? (s.city || '') : '';
-  document.getElementById('sStart').value = s ? s.start_date : new Date().toISOString().slice(0, 10);
-  document.getElementById('sEnd').value = s ? s.end_date : '';
-  document.getElementById('sActive').value = s ? String(s.is_active) : 'true';
+let sponsorImages = [];
+
+function normalizeSponsorImageEntry(entry) {
+  if (!entry) return null;
+
+  if (typeof entry === 'string') {
+    return {
+      kind: 'existing',
+      url: entry,
+      thumbnailUrl: entry,
+    };
+  }
+
+  const url = entry.url || entry.path || '';
+  const thumbnailUrl = entry.thumbnailUrl || entry.thumbnail_path || url;
+
+  if (!url) return null;
+
+  return {
+    kind: 'existing',
+    url,
+    thumbnailUrl,
+  };
+}
+
+function renderSponsorImageGrid() {
+  const grid = document.getElementById('sImagesGrid');
+  const addBtn = document.getElementById('sAddImgBtn');
+  const countEl = document.getElementById('sImgCount');
+  grid.innerHTML = '';
+
+  sponsorImages.forEach((image, idx) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'width:100px;text-align:center';
+
+    const preview = document.createElement('div');
+    preview.style.cssText = 'width:100px;height:80px;border-radius:6px;overflow:hidden;border:1px solid #dee2e6;cursor:pointer;position:relative';
+    preview.title = 'Clique para trocar a imagem';
+    preview.onclick = () => triggerReplaceSponsorImage(idx);
+
+    const img = document.createElement('img');
+    img.src = image.thumbnailUrl || image.url || image.previewUrl;
+    img.alt = '';
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+    img.onerror = () => { img.style.display = 'none'; };
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.35);opacity:0;transition:.15s;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<i class="bi bi-camera" style="color:#fff;font-size:18px"></i>';
+    preview.addEventListener('mouseenter', () => { overlay.style.opacity = '1'; });
+    preview.addEventListener('mouseleave', () => { overlay.style.opacity = '0'; });
+
+    preview.appendChild(img);
+    preview.appendChild(overlay);
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.className = 'd-none';
+    fileInput.id = 'sReplaceFile' + idx;
+    fileInput.onchange = () => onReplaceSponsorImageFile(idx, fileInput);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-link btn-sm p-0 mt-1 text-danger';
+    removeBtn.style.cssText = 'font-size:11px;width:100%';
+    removeBtn.innerHTML = '<i class="bi bi-x-circle me-1"></i>Remover';
+    removeBtn.onclick = () => removeSponsorImage(idx);
+
+    wrap.appendChild(preview);
+    wrap.appendChild(fileInput);
+    wrap.appendChild(removeBtn);
+    grid.appendChild(wrap);
+  });
+
+  const max = 5;
+  addBtn.style.display = sponsorImages.length >= max ? 'none' : '';
+  countEl.textContent = sponsorImages.length > 0 ? sponsorImages.length + '/' + max + ' imagens' : '';
+}
+
+function triggerAddSponsorImage() {
+  const input = document.getElementById('sAddImgFile');
+  input.value = '';
+  input.click();
+}
+
+function onAddSponsorImageFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (sponsorImages.length >= 5) {
+    alert('Limite maximo de 5 imagens por patrocinio.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    sponsorImages.push({
+      kind: 'file',
+      file,
+      previewUrl: e.target.result,
+      url: e.target.result,
+      thumbnailUrl: e.target.result,
+    });
+    renderSponsorImageGrid();
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function triggerReplaceSponsorImage(idx) {
+  document.getElementById('sReplaceFile' + idx).click();
+}
+
+function onReplaceSponsorImageFile(idx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    sponsorImages[idx] = {
+      kind: 'file',
+      file,
+      previewUrl: e.target.result,
+      url: e.target.result,
+      thumbnailUrl: e.target.result,
+    };
+    renderSponsorImageGrid();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSponsorImage(idx) {
+  sponsorImages.splice(idx, 1);
+  renderSponsorImageGrid();
+}
+
+function resetSponsorForm() {
+  document.getElementById('sponsorModalTitle').textContent = 'Novo Patrocinio';
+  document.getElementById('sponsorId').value = '';
+  document.getElementById('sName').value = '';
+  document.getElementById('sUrl').value = '';
+  document.getElementById('sDesc').value = '';
+  document.getElementById('sState').value = '';
+  document.getElementById('sCity').innerHTML = '<option value="">Todas as cidades</option>';
+  document.getElementById('sCity').disabled = true;
+  document.getElementById('sStart').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('sEnd').value = '';
+  document.getElementById('sActive').value = 'true';
+  sponsorImages = [];
+  renderSponsorImageGrid();
+}
+
+async function loadSponsorCities(state, selectedCity) {
+  const citySelect = document.getElementById('sCity');
+
+  if (!state) {
+    citySelect.innerHTML = '<option value="">Todas as cidades</option>';
+    citySelect.disabled = true;
+    return;
+  }
+
+  citySelect.innerHTML = '<option value="">Carregando cidades...</option>';
+  citySelect.disabled = true;
+
+  try {
+    const response = await fetch('/api/cities?state=' + encodeURIComponent(state));
+    const cities = await response.json();
+    const items = Array.isArray(cities) ? cities : [];
+
+    citySelect.innerHTML = '<option value="">Todas as cidades</option>';
+    items.forEach((city) => {
+      const option = document.createElement('option');
+      option.value = city;
+      option.textContent = city;
+      if (selectedCity && selectedCity === city) {
+        option.selected = true;
+      }
+      citySelect.appendChild(option);
+    });
+
+    if (selectedCity && !items.includes(selectedCity)) {
+      const option = document.createElement('option');
+      option.value = selectedCity;
+      option.textContent = selectedCity;
+      option.selected = true;
+      citySelect.appendChild(option);
+    }
+  } catch (error) {
+    citySelect.innerHTML = '<option value="">Nao foi possivel carregar as cidades</option>';
+  }
+
+  citySelect.disabled = false;
+}
+
+async function openSponsorModal(id) {
+  resetSponsorForm();
+
+  if (id) {
+    const s = sponsorLookup[id];
+    if (!s) return;
+
+    document.getElementById('sponsorModalTitle').textContent = 'Editar Patrocinio';
+    document.getElementById('sponsorId').value = s.id;
+    document.getElementById('sName').value = s.name;
+    document.getElementById('sUrl').value = s.url;
+    document.getElementById('sDesc').value = s.description || '';
+    document.getElementById('sState').value = s.state || '';
+    document.getElementById('sStart').value = s.start_date;
+    document.getElementById('sEnd').value = s.end_date;
+    document.getElementById('sActive').value = String(!!s.is_active);
+    await loadSponsorCities(s.state || '', s.city || '');
+    sponsorImages = Array.isArray(s.images) ? s.images.map(normalizeSponsorImageEntry).filter(Boolean) : [];
+    renderSponsorImageGrid();
+  }
+
   sponsorModal.show();
 }
+
+document.getElementById('sState').addEventListener('change', function onStateChange() {
+  loadSponsorCities(this.value, '');
+});
 
 document.getElementById('sponsorForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = document.getElementById('sponsorId').value;
-  const payload = {
-    name: document.getElementById('sName').value,
-    url: document.getElementById('sUrl').value,
-    description: document.getElementById('sDesc').value,
-    state: document.getElementById('sState').value || null,
-    city: document.getElementById('sCity').value || null,
-    start_date: document.getElementById('sStart').value,
-    end_date: document.getElementById('sEnd').value,
-    is_active: document.getElementById('sActive').value === 'true',
-  };
+  const formData = new FormData();
+  formData.append('name', document.getElementById('sName').value.trim());
+  formData.append('url', document.getElementById('sUrl').value.trim());
+  formData.append('description', document.getElementById('sDesc').value.trim());
+  formData.append('state', document.getElementById('sState').value || '');
+  formData.append('city', document.getElementById('sCity').value || '');
+  formData.append('start_date', document.getElementById('sStart').value);
+  formData.append('end_date', document.getElementById('sEnd').value);
+  formData.append('is_active', document.getElementById('sActive').value === 'true' ? 'true' : 'false');
+  formData.append('existing_images', JSON.stringify(
+    sponsorImages
+      .filter((image) => image && image.kind === 'existing')
+      .map((image) => ({ url: image.url, thumbnailUrl: image.thumbnailUrl || image.url }))
+  ));
+  sponsorImages
+    .filter((image) => image && image.kind === 'file' && image.file)
+    .forEach((image) => {
+      formData.append('images', image.file);
+    });
+
   try {
     if (id) {
-      await axios.put('/api/admin/sponsors/' + id, payload);
+      await axios.put('/api/admin/sponsors/' + id, formData);
     } else {
-      await axios.post('/api/admin/sponsors', payload);
+      await axios.post('/api/admin/sponsors', formData);
     }
     sponsorModal.hide();
     location.reload();
@@ -207,7 +462,7 @@ document.getElementById('sponsorForm').addEventListener('submit', async (e) => {
 });
 
 async function deleteSponsor(id) {
-  if (!confirm('Excluir este patrocínio?')) return;
+  if (!confirm('Excluir este patrocinio?')) return;
   try {
     await axios.delete('/api/admin/sponsors/' + id);
     location.reload();

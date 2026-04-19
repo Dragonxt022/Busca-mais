@@ -11,37 +11,39 @@
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informações da Fonte</h5>
+        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacoes da Fonte</h5>
       </div>
       <div class="card-body">
         <form id="editSourceForm">
           <input type="hidden" name="id" value="<%= data.id %>">
-          
+
           <div class="mb-3">
             <label class="form-label">Nome</label>
             <input type="text" class="form-control" name="name" value="<%= data.name %>" required>
           </div>
-          
+
           <div class="mb-3">
             <label class="form-label">URL Base</label>
             <input type="url" class="form-control" name="base_url" value="<%= data.base_url %>" required>
             <small class="text-muted">URL principal do site a ser rastreado</small>
           </div>
-          
+
           <div class="row g-3 mb-3">
             <div class="col-md-4">
               <label class="form-label fw-semibold">Estado <span class="text-danger">*</span></label>
               <select class="form-select" name="state" id="sourceState" required>
                 <option value="">Selecione o Estado</option>
-                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
-                  <option value="<%= uf %>" <%= data.state === uf ? 'selected' : '' %>><%= uf %> — <%= nome %></option>
+                <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapa'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceara'],['DF','Distrito Federal'],['ES','Espirito Santo'],['GO','Goias'],['MA','Maranhao'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Para'],['PB','Paraiba'],['PR','Parana'],['PE','Pernambuco'],['PI','Piaui'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondonia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','Sao Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
+                  <option value="<%= uf %>" <%= data.state === uf ? 'selected' : '' %>><%= uf %> - <%= nome %></option>
                 <% }) %>
               </select>
             </div>
             <div class="col-md-8">
-              <label class="form-label fw-semibold">Município <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" name="city" value="<%= data.city || '' %>" placeholder="Ex: Cujubim" required>
-              <small class="text-muted">Cidade principal da fonte de conteúdo</small>
+              <label class="form-label fw-semibold">Municipio <span class="text-danger">*</span></label>
+              <select class="form-select" name="city" id="sourceCity" required data-selected-city="<%= data.city || '' %>">
+                <option value="">Selecione um estado primeiro</option>
+              </select>
+              <small class="text-muted">Cidade principal da fonte de conteudo</small>
             </div>
           </div>
 
@@ -49,67 +51,105 @@
             <label class="form-label">Categoria</label>
             <select class="form-select" name="category">
               <option value="general" <%= data.category === 'general' ? 'selected' : '' %>>Geral</option>
-              <option value="news" <%= data.category === 'news' ? 'selected' : '' %>>Notícias</option>
+              <option value="news" <%= data.category === 'news' ? 'selected' : '' %>>Noticias</option>
               <option value="blog" <%= data.category === 'blog' ? 'selected' : '' %>>Blog</option>
               <option value="government" <%= data.category === 'government' ? 'selected' : '' %>>Governo</option>
-              <option value="documentation" <%= data.category === 'documentation' ? 'selected' : '' %>>Documentação</option>
+              <option value="documentation" <%= data.category === 'documentation' ? 'selected' : '' %>>Documentacao</option>
               <option value="other" <%= data.category === 'other' ? 'selected' : '' %>>Outro</option>
             </select>
           </div>
-          
+
           <div class="mb-3">
             <label class="form-label">Profundidade de Coleta</label>
             <input type="number" class="form-control" name="crawl_depth" value="<%= data.crawl_depth || 3 %>" min="1" max="5">
-            <small class="text-muted">Quantos níveis de links seguir (1-5)</small>
+            <small class="text-muted">Quantos niveis de links seguir (1-5)</small>
           </div>
-          
+
+          <div class="mb-3">
+            <label class="form-label">Limite de Páginas por Coleta</label>
+            <input type="number" class="form-control" name="max_pages" value="<%= data.max_pages || '' %>" min="1" placeholder="Sem limite">
+            <small class="text-muted">Número máximo de páginas coletadas por execução (vazio = sem limite)</small>
+          </div>
+
           <div class="mb-3">
             <label class="form-label">Tempo entre Coletas (ms)</label>
             <input type="number" class="form-control" name="delay_between_requests" value="<%= data.delay_between_requests || 1000 %>" min="100">
-            <small class="text-muted">Aguardar este tempo entre cada requisição</small>
+            <small class="text-muted">Aguardar este tempo entre cada requisicao</small>
           </div>
-          
+
           <div class="mb-3">
             <label class="form-label">User Agent</label>
-            <input type="text" class="form-control" name="userAgent" value="<%= data.user_agent || '' %>" placeholder="Deixe vazio para usar o padrão">
+            <input type="text" class="form-control" name="userAgent" value="<%= data.user_agent || '' %>" placeholder="Deixe vazio para usar o padrao">
             <small class="text-muted">User agent personalizado (opcional)</small>
           </div>
-          
+
+          <div class="mb-3">
+            <label class="form-label">Seletor principal do conteudo</label>
+            <input
+              type="text"
+              class="form-control"
+              name="contentSelector"
+              value="<%= data.config_json?.contentSelector || '' %>"
+              placeholder="Ex: .elementor-widget-theme-post-content"
+            >
+            <small class="text-muted">Opcional. Define o bloco principal de leitura para essa fonte.</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Seletores para ignorar</label>
+            <textarea
+              class="form-control"
+              name="excludeSelectors"
+              rows="5"
+              placeholder="#comments&#10;.comments-area&#10;.related-posts"
+            ><%= Array.isArray(data.config_json?.excludeSelectors) ? data.config_json.excludeSelectors.join('\n') : '' %></textarea>
+            <small class="text-muted">Um seletor CSS por linha para remover comentarios, "veja tambem", sidebars e widgets.</small>
+          </div>
+
           <hr>
-          
-          <h6 class="mb-3">Opções</h6>
-          
+
+          <h6 class="mb-3">Opcoes</h6>
+
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" name="is_active" id="isActive" value="true" <%= data.is_active ? 'checked' : '' %>>
               <label class="form-check-label" for="isActive">Fonte Ativa</label>
             </div>
-            <small class="text-muted d-block">Fontes inativas não são rastreadas automaticamente</small>
+            <small class="text-muted d-block">Fontes inativas nao sao rastreadas automaticamente</small>
           </div>
-          
+
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" name="follow_internal_links" id="followInternal" value="true" <%= data.follow_internal_links !== false ? 'checked' : '' %>>
               <label class="form-check-label" for="followInternal">Seguir Links Internos</label>
             </div>
           </div>
-          
+
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" name="download_images" id="downloadImages" value="true" <%= data.download_images !== false ? 'checked' : '' %>>
               <label class="form-check-label" for="downloadImages">Baixar Imagens</label>
             </div>
           </div>
-          
+
           <div class="mb-3">
             <div class="form-check form-switch">
               <input type="checkbox" class="form-check-input" name="take_screenshots" id="takeScreenshots" value="true" <%= data.take_screenshots ? 'checked' : '' %>>
               <label class="form-check-label" for="takeScreenshots">Capturar Screenshots</label>
             </div>
           </div>
-          
+
+          <div class="mb-3">
+            <label class="form-label">Link dos resultados de busca</label>
+            <select class="form-select" name="result_link_type">
+              <option value="detail_page" <%= (data.result_link_type || 'detail_page') === 'detail_page' ? 'selected' : '' %>>Abrir pagina de detalhes</option>
+              <option value="direct_document" <%= data.result_link_type === 'direct_document' ? 'selected' : '' %>>Ir direto para o documento/link</option>
+            </select>
+            <small class="text-muted">Controla o destino ao clicar num resultado desta fonte.</small>
+          </div>
+
           <hr>
-          
+
           <div class="d-flex justify-content-between">
             <button type="button" class="btn btn-outline-danger" onclick="deleteSource('<%= data.id %>')">
               <i class="bi bi-trash me-1"></i> Excluir Fonte
@@ -117,7 +157,7 @@
             <div>
               <a href="/admin/sources" class="btn btn-secondary me-2">Cancelar</a>
               <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+                <i class="bi bi-check-lg me-1"></i> Salvar Alteracoes
               </button>
             </div>
           </div>
@@ -125,15 +165,15 @@
       </div>
     </div>
   </div>
-  
+
   <div class="col-lg-4">
     <div class="card mb-4">
       <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Estatísticas</h5>
+        <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Estatisticas</h5>
       </div>
       <div class="card-body">
         <div class="d-flex justify-content-between mb-2">
-          <span>Páginas:</span>
+          <span>Paginas:</span>
           <strong id="pageCount">-</strong>
         </div>
         <div class="d-flex justify-content-between mb-2">
@@ -146,8 +186,26 @@
         </div>
         <hr>
         <div class="d-flex justify-content-between mb-2">
-          <span>Última coleta:</span>
+          <span>Ultima coleta:</span>
           <strong id="lastCrawl">-</strong>
+        </div>
+        <hr>
+        <div class="mb-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>Progresso de indexacao</span>
+            <strong id="indexProgressPercent">0%</strong>
+          </div>
+          <div class="progress mt-2" style="height: 8px;">
+            <div
+              id="indexProgressBar"
+              class="progress-bar bg-primary"
+              role="progressbar"
+              style="width: 0%"
+              aria-valuenow="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            ></div>
+          </div>
         </div>
         <div class="d-flex justify-content-between">
           <span>Criado em:</span>
@@ -155,7 +213,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="card">
       <div class="card-header">
         <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Agendamento</h5>
@@ -193,16 +251,16 @@
         <div class="modal-body">
           <input type="hidden" name="sourceId" id="scheduleSourceId">
           <div class="mb-3">
-            <label class="form-label">Expressão Cron</label>
+            <label class="form-label">Expressao Cron</label>
             <input type="text" class="form-control" name="schedule" id="scheduleCron" placeholder="0 */6 * * *" required>
-            <small class="text-muted">Formato: minuto hora dia mês dia_semana</small>
+            <small class="text-muted">Formato: minuto hora dia mes dia_semana</small>
           </div>
           <div class="mb-3">
-            <label class="form-label">Predefinições</label>
+            <label class="form-label">Predefinicoes</label>
             <div class="btn-group w-100">
               <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */6 * * *')">6h</button>
               <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 */12 * * *')">12h</button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * *')">Diário</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * *')">Diario</button>
               <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setCron('0 0 * * 0')">Semanal</button>
             </div>
           </div>
@@ -218,25 +276,73 @@
 </div>
 
 <script>
+async function populateSourceCities(selectedCity) {
+  const state = document.getElementById('sourceState').value;
+  const citySelect = document.getElementById('sourceCity');
+
+  citySelect.innerHTML = '<option value="">Carregando cidades...</option>';
+  citySelect.disabled = true;
+
+  if (!state) {
+    citySelect.innerHTML = '<option value="">Selecione um estado primeiro</option>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/cities?state=' + encodeURIComponent(state));
+    const cities = await response.json();
+    const items = Array.isArray(cities) ? cities : [];
+
+    citySelect.innerHTML = '<option value="">Selecione...</option>';
+    items.forEach((city) => {
+      const option = document.createElement('option');
+      option.value = city;
+      option.textContent = city;
+      if (selectedCity && selectedCity === city) {
+        option.selected = true;
+      }
+      citySelect.appendChild(option);
+    });
+
+    if (selectedCity && !items.includes(selectedCity)) {
+      const option = document.createElement('option');
+      option.value = selectedCity;
+      option.textContent = selectedCity;
+      option.selected = true;
+      citySelect.appendChild(option);
+    }
+  } catch (error) {
+    citySelect.innerHTML = '<option value="">Nao foi possivel carregar as cidades</option>';
+  }
+
+  citySelect.disabled = false;
+}
+
+document.getElementById('sourceState').addEventListener('change', () => {
+  populateSourceCities();
+});
+
 document.getElementById('editSourceForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
   const formData = new FormData(form);
   const data = Object.fromEntries(formData);
-  
+
   data.isActive = form.querySelector('[name=is_active]').checked;
   data.followInternalLinks = form.querySelector('[name=follow_internal_links]').checked;
   data.downloadImages = form.querySelector('[name=download_images]').checked;
   data.takeScreenshots = form.querySelector('[name=take_screenshots]').checked;
-
-  data.crawlDepth = parseInt(data.crawl_depth) || 3;
-  data.delayBetweenRequests = parseInt(data.delay_between_requests) || 1000;
+  data.crawlDepth = parseInt(data.crawl_depth, 10) || 3;
+  data.delayBetweenRequests = parseInt(data.delay_between_requests, 10) || 1000;
+  data.max_pages = data.max_pages ? parseInt(data.max_pages, 10) || null : null;
   data.userAgent = form.querySelector('[name=userAgent]').value;
+  data.contentSelector = form.querySelector('[name=contentSelector]').value;
+  data.excludeSelectors = form.querySelector('[name=excludeSelectors]').value;
   data.state = form.querySelector('[name=state]').value;
   data.city = form.querySelector('[name=city]').value;
-  
+
   try {
-    const response = await axios.put('/api/sources/' + data.id, data);
+    await axios.put('/api/sources/' + data.id, data);
     alert('Fonte atualizada com sucesso!');
     location.reload();
   } catch (error) {
@@ -245,11 +351,11 @@ document.getElementById('editSourceForm').addEventListener('submit', async (e) =
 });
 
 async function deleteSource(sourceId) {
-  if (confirm('Tem certeza que deseja excluir esta fonte?\n\nIsso também removerá todas as páginas associadas.')) {
-    if (confirm('Esta ação não pode ser desfeita. Continuar?')) {
+  if (confirm('Tem certeza que deseja excluir esta fonte?\n\nIsso tambem removera todas as paginas associadas.')) {
+    if (confirm('Esta acao nao pode ser desfeita. Continuar?')) {
       try {
         await axios.delete('/api/sources/' + sourceId);
-        alert('Fonte excluída com sucesso!');
+        alert('Fonte excluida com sucesso!');
         window.location.href = '/admin/sources';
       } catch (error) {
         alert('Erro: ' + (error.response?.data?.error || error.message));
@@ -272,7 +378,7 @@ document.getElementById('scheduleForm').addEventListener('submit', async (e) => 
   e.preventDefault();
   const sourceId = document.getElementById('scheduleSourceId').value;
   const schedule = document.getElementById('scheduleCron').value;
-  
+
   try {
     await axios.post('/api/scheduler/sources/' + sourceId + '/schedule', { schedule });
     bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
@@ -299,18 +405,24 @@ async function loadStats() {
   try {
     const response = await axios.get('/api/sources/<%= data.id %>/stats');
     const stats = response.data;
-    
+
     document.getElementById('pageCount').textContent = stats.totalPages || 0;
     document.getElementById('indexedCount').textContent = stats.indexedPages || 0;
     document.getElementById('errorCount').textContent = stats.pagesWithErrors || 0;
-    
+    const progressPercent = stats.totalPages > 0 ? Math.round(((stats.indexedPages || 0) / stats.totalPages) * 100) : 0;
+    document.getElementById('indexProgressPercent').textContent = progressPercent + '%';
+    document.getElementById('indexProgressBar').style.width = progressPercent + '%';
+    document.getElementById('indexProgressBar').setAttribute('aria-valuenow', String(progressPercent));
+    document.getElementById('indexProgressBar').className = 'progress-bar ' + (progressPercent === 100 ? 'bg-success' : 'bg-primary');
+
     if (stats.lastCrawl) {
       document.getElementById('lastCrawl').textContent = new Date(stats.lastCrawl).toLocaleString('pt-BR');
     }
   } catch (error) {
-    console.error('Erro ao carregar estatísticas:', error);
+    console.error('Erro ao carregar estatisticas:', error);
   }
 }
 
 loadStats();
+populateSourceCities(document.getElementById('sourceCity').dataset.selectedCity);
 </script>

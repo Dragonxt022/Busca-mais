@@ -51,7 +51,18 @@
 
   function showModal() {
     var modal = document.getElementById('locationModal');
-    if (modal) modal.removeAttribute('hidden');
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    var loc = getLocation();
+    var stateSelect = document.getElementById('locationState');
+    var skipBtn = document.getElementById('locationSkip');
+    if (loc.state && stateSelect && stateSelect.value !== loc.state) {
+      stateSelect.value = loc.state;
+      loadCities(loc.state, loc.city);
+    }
+    if (skipBtn) {
+      skipBtn.textContent = isLocationSet() ? 'Cancelar' : 'Pular por enquanto';
+    }
   }
 
   function hideModal() {
@@ -59,23 +70,42 @@
     if (modal) modal.setAttribute('hidden', '');
   }
 
-  function loadCities(state) {
+  window.openLocationModal = showModal;
+
+  function loadCities(state, preselect) {
     var cityInput = document.getElementById('locationCity');
-    if (!cityInput || !state) return;
+    if (!cityInput) return;
+
+    cityInput.innerHTML = '<option value="">Carregando cidades...</option>';
+    cityInput.disabled = true;
+
+    if (!state) {
+      cityInput.innerHTML = '<option value="">Selecione um estado primeiro</option>';
+      return;
+    }
+
+    var selectedCity = preselect || cityInput.getAttribute('data-selected-city') || '';
+
     fetch('/api/cities?state=' + encodeURIComponent(state))
       .then(function (r) { return r.json(); })
       .then(function (cities) {
-        if (!cities || cities.length === 0) return;
-        var datalist = document.getElementById('locationCityList');
-        if (!datalist) {
-          datalist = document.createElement('datalist');
-          datalist.id = 'locationCityList';
-          cityInput.setAttribute('list', 'locationCityList');
-          cityInput.parentNode.appendChild(datalist);
+        var items = Array.isArray(cities) ? cities : [];
+        cityInput.innerHTML = '<option value="">Selecione...</option>';
+        items.forEach(function (city) {
+          var option = document.createElement('option');
+          option.value = city;
+          option.textContent = city;
+          if (selectedCity && city === selectedCity) option.selected = true;
+          cityInput.appendChild(option);
+        });
+        if (items.length === 0) {
+          cityInput.innerHTML = '<option value="">Nenhuma cidade encontrada</option>';
         }
-        datalist.innerHTML = cities.map(function (c) { return '<option value="' + c + '">'; }).join('');
+        cityInput.disabled = false;
       })
-      .catch(function () {});
+      .catch(function () {
+        cityInput.innerHTML = '<option value="">Nao foi possivel carregar as cidades</option>';
+      });
   }
 
   function bindModal() {
@@ -86,10 +116,22 @@
     var skipBtn = document.getElementById('locationSkip');
 
     var stateSelect = document.getElementById('locationState');
+    var citySelect = document.getElementById('locationCity');
     if (stateSelect) {
       stateSelect.addEventListener('change', function () {
         loadCities(stateSelect.value);
       });
+    }
+
+    if (stateSelect && citySelect) {
+      var currentState = stateSelect.value;
+      var currentCity = citySelect.getAttribute('data-selected-city') || '';
+      if (currentState) {
+        loadCities(currentState);
+        if (currentCity) {
+          citySelect.value = currentCity;
+        }
+      }
     }
 
     if (form) {
@@ -120,6 +162,12 @@
         }
       });
     }
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal && isLocationSet()) {
+        hideModal();
+      }
+    });
   }
 
   function interceptSearchForms() {
@@ -142,10 +190,17 @@
     });
   }
 
+  function bindNavButtons() {
+    document.querySelectorAll('.js-open-location').forEach(function (btn) {
+      btn.addEventListener('click', showModal);
+    });
+  }
+
   function init() {
     updateLogo();
     bindModal();
     interceptSearchForms();
+    bindNavButtons();
   }
 
   if (document.readyState === 'loading') {

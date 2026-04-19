@@ -5,26 +5,35 @@ const { logger } = require('../libs/logger');
 const { hashUrl } = require('../libs/url-utils');
 
 class SourceService {
+  normalizePositiveInt(value, fallback) {
+    const parsed = parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
   /**
    * Create a new source
    */
   async create(data) {
     const source = await Source.create({
       name: data.name,
-      base_url: data.url || data.baseUrl || data.base_url,
+      base_url: data.base_url || data.url || data.baseUrl,
       type: data.type || 'website',
       category: data.category || 'general',
       is_active: data.is_active !== false,
-      crawl_depth: data.crawl_depth || data.crawlDepth || data.maxPages || 3,
+      crawl_depth: this.normalizePositiveInt(data.crawl_depth ?? data.crawlDepth, 3),
       follow_internal_links: data.follow_internal_links !== false,
       download_images: data.download_images === true,
       take_screenshots: data.take_screenshots === true,
-      delay_between_requests: data.delay_between_requests || 1000,
+      delay_between_requests: this.normalizePositiveInt(data.delay_between_requests ?? data.delayBetweenRequests, 1000),
       user_agent: data.user_agent || null,
       schedule: data.schedule || null,
       state: data.state || null,
       city: data.city || null,
+      max_pages: data.max_pages ? this.normalizePositiveInt(data.max_pages, null) : null,
       config_json: data.config || data.configJson || {},
+      result_link_type: ['detail_page', 'direct_document'].includes(data.result_link_type || data.resultLinkType)
+        ? (data.result_link_type || data.resultLinkType)
+        : 'detail_page',
     });
 
     logger.info(`Source created: ${source.name} (${source.id})`);
@@ -47,20 +56,34 @@ class SourceService {
     }
     if (data.type !== undefined) updateData.type = data.type;
     if (data.category !== undefined) updateData.category = data.category;
+    if (data.is_active !== undefined) updateData.is_active = data.is_active;
     if (data.status !== undefined) updateData.is_active = data.status !== 'inactive';
+    if (data.crawl_depth !== undefined) updateData.crawl_depth = this.normalizePositiveInt(data.crawl_depth, source.crawl_depth || 3);
     if (data.crawlDepth !== undefined || data.maxPages !== undefined) {
-      updateData.crawl_depth = data.crawlDepth || data.maxPages;
+      updateData.crawl_depth = this.normalizePositiveInt(data.crawlDepth ?? data.maxPages, source.crawl_depth || 3);
     }
+    if (data.follow_internal_links !== undefined) updateData.follow_internal_links = data.follow_internal_links;
     if (data.followInternalLinks !== undefined) updateData.follow_internal_links = data.followInternalLinks;
+    if (data.download_images !== undefined) updateData.download_images = data.download_images;
     if (data.downloadImages !== undefined) updateData.download_images = data.downloadImages;
+    if (data.take_screenshots !== undefined) updateData.take_screenshots = data.take_screenshots;
     if (data.takeScreenshots !== undefined) updateData.take_screenshots = data.takeScreenshots;
-    if (data.delayBetweenRequests !== undefined) updateData.delay_between_requests = data.delayBetweenRequests;
+    if (data.delay_between_requests !== undefined) updateData.delay_between_requests = this.normalizePositiveInt(data.delay_between_requests, source.delay_between_requests || 1000);
+    if (data.delayBetweenRequests !== undefined) updateData.delay_between_requests = this.normalizePositiveInt(data.delayBetweenRequests, source.delay_between_requests || 1000);
+    if (data.user_agent !== undefined) updateData.user_agent = data.user_agent;
     if (data.userAgent !== undefined) updateData.user_agent = data.userAgent;
     if (data.schedule !== undefined) updateData.schedule = data.schedule;
     if (data.state !== undefined) updateData.state = data.state || null;
     if (data.city !== undefined) updateData.city = data.city || null;
     if (data.config !== undefined || data.configJson !== undefined) {
       updateData.config_json = data.config || data.configJson;
+    }
+    if (data.max_pages !== undefined) {
+      updateData.max_pages = data.max_pages ? this.normalizePositiveInt(data.max_pages, null) : null;
+    }
+    const rlType = data.result_link_type || data.resultLinkType;
+    if (rlType !== undefined) {
+      updateData.result_link_type = ['detail_page', 'direct_document'].includes(rlType) ? rlType : 'detail_page';
     }
 
     await source.update(updateData);
@@ -104,22 +127,22 @@ class SourceService {
    * List sources with pagination
    */
   async list(options = {}) {
-    const { page = 1, limit = 20, status, category, search } = options;
+    const { page = 1, limit = 20, where = {}, status, category, search } = options;
+    const finalWhere = { ...where };
 
-    const where = {};
     if (status !== undefined) {
-      where.is_active = status === 'active';
+      finalWhere.is_active = status === 'active';
     }
-    if (category) where.category = category;
+    if (category) finalWhere.category = category;
     if (search) {
-      where[Op.or] = [
+      finalWhere[Op.or] = [
         { name: { [Op.iLike]: `%${search}%` } },
         { base_url: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
     const { count, rows } = await Source.findAndCountAll({
-      where,
+      where: finalWhere,
       limit,
       offset: (page - 1) * limit,
       order: [['created_at', 'DESC']],
@@ -142,16 +165,20 @@ class SourceService {
       throw new Error('Source not found');
     }
 
-    const { discover = true, maxPages = source.crawl_depth * 50 } = options;
+    const discover = options.discover !== undefined ? options.discover : true;
+    const maxDepth = this.normalizePositiveInt(options.maxDepth ?? options.crawlDepth ?? source.crawl_depth, source.crawl_depth || 1);
+    const maxPages = this.normalizePositiveInt(options.maxPages ?? source.max_pages, maxDepth * 50);
 
     // Create a crawl job
     const job = await CrawlJob.create({
       source_id: sourceId,
       type: discover ? 'discovery' : 'incremental',
       status: 'pending',
-      total_pages: 0,
-      processed_pages: 0,
-      config: { maxPages },
+      payload_json: { discover, maxPages, maxDepth },
+      pages_found: 0,
+      pages_crawled: 0,
+      pages_saved: 0,
+      pages_errored: 0,
     });
 
     if (discover) {
@@ -161,6 +188,7 @@ class SourceService {
         {
           sourceId: source.id,
           startUrl: source.base_url,
+          maxDepth,
           maxPages,
           jobId: job.id,
         },
@@ -174,7 +202,11 @@ class SourceService {
       });
       const runToken = Date.now();
 
-      await job.update({ total_pages: pages.length, status: 'running', started_at: new Date() });
+      await job.update({
+        pages_found: pages.length,
+        status: 'running',
+        started_at: new Date(),
+      });
 
       for (const page of pages) {
         await crawlQueue.add(
@@ -229,6 +261,8 @@ class SourceService {
       indexedPages,
       pendingPages,
       failedPages,
+      pagesWithErrors: failedPages,
+      lastCrawl: source.last_crawled_at,
       crawlRate: totalPages > 0 ? ((indexedPages / totalPages) * 100).toFixed(2) + '%' : '0%',
     };
   }

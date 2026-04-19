@@ -73,6 +73,16 @@
   </style>
 </head>
 <body>
+  <%
+    const textMetadata = detail.metadata_json || {};
+    const contentBlocks = Array.isArray(textMetadata.content_blocks)
+      ? textMetadata.content_blocks
+      : (Array.isArray(textMetadata.extracted_blocks) ? textMetadata.extracted_blocks : []);
+    const hasContentFlag = typeof textMetadata.has_content === 'boolean'
+      ? textMetadata.has_content
+      : Boolean(detail.content_text || textMetadata.extracted_text);
+    const cleanTextPreview = detail.content_text || textMetadata.extracted_text || textMetadata.clean_text || '';
+  %>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="/"><i class="bi bi-search me-2"></i>Busca+</a>
@@ -158,6 +168,52 @@
               <pre class="mb-0 mt-2 small"><%= detail.metadata_json.last_index_error %></pre>
             </div>
             <% } %>
+
+            <% if (contentBlocks.length > 0 || cleanTextPreview) { %>
+            <div class="card mt-4 border-0 bg-light">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                  <h6 class="mb-0"><i class="bi bi-braces-asterisk me-2"></i>Processamento de Texto</h6>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge <%= hasContentFlag ? 'bg-success' : 'bg-secondary' %>">
+                      <%= hasContentFlag ? 'com conteudo' : 'sem conteudo' %>
+                    </span>
+                    <span class="badge bg-primary"><%= contentBlocks.length %> blocos</span>
+                  </div>
+                </div>
+                <% if (cleanTextPreview) { %>
+                <div class="mb-3">
+                  <div class="meta-label">Texto limpo</div>
+                  <div class="content-preview"><%= cleanTextPreview.substring(0, 2000) %><% if (cleanTextPreview.length > 2000) { %>...[texto truncado]<% } %></div>
+                </div>
+                <% } %>
+                <% if (contentBlocks.length > 0) { %>
+                <div>
+                  <div class="meta-label mb-2">Blocos unicos</div>
+                  <div class="accordion" id="catalogTextBlocksAccordion">
+                    <% contentBlocks.slice(0, 20).forEach(function(block, index) { %>
+                    <div class="accordion-item">
+                      <h2 class="accordion-header">
+                        <button class="accordion-button <%= index === 0 ? '' : 'collapsed' %>" type="button" data-bs-toggle="collapse" data-bs-target="#catalog-text-block-<%= index %>">
+                          Bloco <%= index + 1 %> - <%= block.length %> caracteres
+                        </button>
+                      </h2>
+                      <div id="catalog-text-block-<%= index %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>" data-bs-parent="#catalogTextBlocksAccordion">
+                        <div class="accordion-body">
+                          <div class="content-preview mb-0"><%= block %></div>
+                        </div>
+                      </div>
+                    </div>
+                    <% }); %>
+                  </div>
+                  <% if (contentBlocks.length > 20) { %>
+                  <small class="text-muted d-block mt-2">Exibindo os 20 primeiros blocos de <%= contentBlocks.length %>.</small>
+                  <% } %>
+                </div>
+                <% } %>
+              </div>
+            </div>
+            <% } %>
           </div>
         </div>
         <% } else { %>
@@ -189,6 +245,45 @@
           </div>
           <div class="card-body">
             <div class="content-preview"><%= detail.content_text.substring(0, 3000) %><% if (detail.content_text.length > 3000) { %>...[conteudo truncado]<% } %></div>
+          </div>
+        </div>
+        <% } %>
+
+        <% if (contentBlocks.length > 0 || cleanTextPreview) { %>
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0"><i class="bi bi-braces-asterisk me-2"></i>Processamento de Texto</h5>
+            <div class="d-flex gap-2">
+              <span class="badge <%= hasContentFlag ? 'bg-success' : 'bg-secondary' %>">
+                <%= hasContentFlag ? 'com conteudo' : 'sem conteudo' %>
+              </span>
+              <span class="badge bg-primary"><%= contentBlocks.length %> blocos</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <% if (contentBlocks.length > 0) { %>
+            <div class="accordion" id="pageTextBlocksAccordion">
+              <% contentBlocks.slice(0, 20).forEach(function(block, index) { %>
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button <%= index === 0 ? '' : 'collapsed' %>" type="button" data-bs-toggle="collapse" data-bs-target="#page-text-block-<%= index %>">
+                    Bloco <%= index + 1 %> - <%= block.length %> caracteres
+                  </button>
+                </h2>
+                <div id="page-text-block-<%= index %>" class="accordion-collapse collapse <%= index === 0 ? 'show' : '' %>" data-bs-parent="#pageTextBlocksAccordion">
+                  <div class="accordion-body">
+                    <div class="content-preview mb-0"><%= block %></div>
+                  </div>
+                </div>
+              </div>
+              <% }); %>
+            </div>
+            <% if (contentBlocks.length > 20) { %>
+            <small class="text-muted d-block mt-2">Exibindo os 20 primeiros blocos de <%= contentBlocks.length %>.</small>
+            <% } %>
+            <% } else if (cleanTextPreview) { %>
+            <div class="content-preview"><%= cleanTextPreview.substring(0, 2000) %><% if (cleanTextPreview.length > 2000) { %>...[texto truncado]<% } %></div>
+            <% } %>
           </div>
         </div>
         <% } %>
@@ -266,6 +361,16 @@
                 <% } else { %>
                   -
                 <% } %>
+              </div>
+            </div>
+
+            <div class="meta-card">
+              <div class="meta-label">Processamento</div>
+              <div class="meta-value">
+                <span class="badge <%= hasContentFlag ? 'bg-success' : 'bg-secondary' %>">
+                  <%= hasContentFlag ? 'Conteudo valido' : 'Sem conteudo' %>
+                </span>
+                <span class="badge bg-primary ms-1"><%= contentBlocks.length %> blocos</span>
               </div>
             </div>
           </div>

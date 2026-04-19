@@ -81,10 +81,21 @@ const Source = sequelize.define('Source', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  max_pages: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Limite maximo de paginas por coleta (null = sem limite)',
+  },
   config_json: {
     type: DataTypes.JSON,
     allowNull: true,
     comment: 'Additional configuration for this source',
+  },
+  result_link_type: {
+    type: DataTypes.ENUM('detail_page', 'direct_document'),
+    defaultValue: 'detail_page',
+    allowNull: false,
   },
 }, {
   tableName: 'sources',

@@ -12,6 +12,7 @@ const Sponsor = sequelize.define('Sponsor', {
   end_date: { type: DataTypes.DATEONLY, allowNull: false },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
   click_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+  images: { type: DataTypes.TEXT, allowNull: true, defaultValue: null, comment: 'JSON array de URLs de imagens (max 5)' },
 }, {
   tableName: 'sponsors',
   timestamps: true,

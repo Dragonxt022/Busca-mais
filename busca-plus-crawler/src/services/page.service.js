@@ -15,9 +15,9 @@ class PageService {
     
     const page = await Page.create({
       url: data.url,
-      url_hash: urlHash,
-      source_id: data.sourceId,
-      status: 'pending',
+      hash_url: urlHash,
+      source_id: data.sourceId || data.source_id,
+      is_active: data.is_active !== false,
     });
 
     logger.info(`Page created: ${page.url}`);
@@ -195,11 +195,11 @@ class PageService {
       try {
         const urlHash = hashUrl(url);
         const [page, created] = await Page.findOrCreate({
-          where: { url_hash: urlHash },
+          where: { hash_url: urlHash },
           defaults: {
             url,
             source_id: sourceId,
-            status: 'pending',
+            is_active: true,
           },
         });
 

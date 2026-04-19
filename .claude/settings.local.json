@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(grep -E \"\\(app|server|index\\)\\\\.js$\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(grep -E \"\\\\.\\(js|sql\\)$\")",
+      "Bash(xargs grep *)",
+      "Bash(npx sequelize-cli *)",
+      "Bash(cat src/config/sequelize-cli.js)",
+      "Bash(cat .sequelizerc)",
+      "Bash(node src/scripts/init-db.js)",
+      "Bash(npm install *)",
+      "Bash(node --test tests/catalog-document-content.service.test.js)"
     ]
   }
 }

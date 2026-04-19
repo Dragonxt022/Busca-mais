@@ -264,6 +264,7 @@ class SearchService {
       const params = new URLSearchParams();
       if (state) params.set('state', state);
       if (city) params.set('city', city);
+      params.set('limit', '100');
       const qs = params.toString();
       const { data } = await axios.get(
         `${this.crawlerApiUrl}/api/sponsors${qs ? `?${qs}` : ''}`,
@@ -409,6 +410,9 @@ class SearchService {
       markdownContent: doc.markdown_content || null,
       detailUrl: this.buildDetailUrl(doc.id, { query, focus: snippet.focusText }),
       openUrl,
+      resultUrl: doc.source_result_link_type === 'direct_document'
+        ? openUrl
+        : this.buildDetailUrl(doc.id, { query, focus: snippet.focusText }),
       sourceLinkUrl: doc.source_url || doc.url,
       domain: doc.domain,
       language: doc.language,

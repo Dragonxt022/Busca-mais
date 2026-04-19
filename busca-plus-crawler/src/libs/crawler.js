@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { logger } = require('./logger');
 const { hashUrl, extractDomain } = require('./url-utils');
 const HtmlParser = require('./html-parser');
+const textCleaner = require('../utils/textCleaner');
 const config = require('../config');
 const { buildChromiumLaunchOptions } = require('./playwright-utils');
 
@@ -71,6 +72,7 @@ class Crawler {
       extractLinks = false,
       followRedirects = true,
       downloadImages = false,
+      parserConfig = {},
     } = options;
 
     const startTime = Date.now();
@@ -126,8 +128,10 @@ class Crawler {
       const title = await page.title();
 
       // Parse HTML
-      const parser = new HtmlParser(html, finalUrl);
+      const parser = new HtmlParser(html, finalUrl, parserConfig);
       const parsedData = parser.extractAll();
+      const textProcessing = textCleaner.processText(parsedData.contentText || '');
+      const cleanedContentText = textProcessing.clean_text;
 
       // Process images from the page only if downloadImages is enabled
       let processedImages = [];
@@ -147,17 +151,24 @@ class Crawler {
         responseTimeMs: responseTime,
         title: parsedData.title || title,
         description: parsedData.description,
-        contentText: parsedData.contentText,
+        contentText: cleanedContentText,
         contentHtml: parsedData.contentHtml,
         canonicalUrl: parsedData.canonicalUrl,
         favicon: parsedData.favicon,
         language: parsedData.language,
         wordCount: parsedData.wordCount,
         slug: parsedData.slug,
-        metadata: parsedData.metadata,
+        metadata: {
+          ...(parsedData.metadata || {}),
+          clean_text: cleanedContentText,
+          content_blocks: textProcessing.blocks,
+          has_content: textProcessing.has_content,
+        },
+        contentBlocks: textProcessing.blocks,
+        hasContent: textProcessing.has_content,
         processedImages,
         hashUrl: hashUrl(finalUrl),
-        hashContent: hashUrl(parsedData.contentText || ''),
+        hashContent: hashUrl(cleanedContentText),
         internalLinks: extractLinks ? parsedData.internalLinks : [],
         html,
       };
@@ -492,27 +503,57 @@ class Crawler {
    * @returns {string[]} Discovered URLs
    */
   async discoverLinks(url, options = {}) {
-    const { maxLinks = 100, sameDomain = true } = options;
+    const {
+      maxLinks = 100,
+      sameDomain = true,
+      maxDepth = 1,
+      delay = 0,
+    } = options;
 
-    const result = await this.crawlPage(url, { extractLinks: true, takeScreenshot: false });
+    const normalizedMaxDepth = Math.max(1, parseInt(maxDepth, 10) || 1);
+    const normalizedMaxLinks = Math.max(1, parseInt(maxLinks, 10) || 100);
+    const baseDomain = extractDomain(url);
+    const queue = [{ url, depth: 0 }];
+    const visited = new Set([url]);
+    const discovered = new Set();
 
-    if (!result.success) {
-      return [];
+    while (queue.length > 0 && discovered.size < normalizedMaxLinks) {
+      const current = queue.shift();
+      const result = await this.crawlPage(current.url, { extractLinks: true, takeScreenshot: false });
+
+      if (!result.success) {
+        continue;
+      }
+
+      let links = result.internalLinks || [];
+
+      if (sameDomain) {
+        links = links.filter((link) => extractDomain(link) === baseDomain);
+      }
+
+      for (const link of links) {
+        if (link === url || visited.has(link)) {
+          continue;
+        }
+
+        visited.add(link);
+        discovered.add(link);
+
+        if (current.depth + 1 < normalizedMaxDepth && discovered.size < normalizedMaxLinks) {
+          queue.push({ url: link, depth: current.depth + 1 });
+        }
+
+        if (discovered.size >= normalizedMaxLinks) {
+          break;
+        }
+      }
+
+      if (delay > 0 && queue.length > 0) {
+        await this.delay(delay);
+      }
     }
 
-    let links = result.internalLinks || [];
-
-    if (sameDomain) {
-      const baseDomain = extractDomain(url);
-      links = links.filter(link => extractDomain(link) === baseDomain);
-    }
-
-    // Limit number of links
-    if (links.length > maxLinks) {
-      links = links.slice(0, maxLinks);
-    }
-
-    return links;
+    return Array.from(discovered);
   }
 }
 

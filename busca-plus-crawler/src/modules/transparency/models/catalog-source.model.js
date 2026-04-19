@@ -56,6 +56,12 @@ const CatalogSource = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    max_documents: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+      comment: 'Limite maximo de documentos por catalogacao (null = sem limite)',
+    },
     config_json: {
       type: DataTypes.JSON,
       allowNull: true,

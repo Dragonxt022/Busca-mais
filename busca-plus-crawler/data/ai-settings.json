@@ -1,9 +1,9 @@
 {
   "enabled": false,
   "provider": "ollama",
-  "summaryMaxCharacters": 12000,
+  "summaryMaxCharacters": 2000,
   "features": {
-    "pageSummary": false,
+    "pageSummary": true,
     "searchReport": false
   },
   "google": {
@@ -13,8 +13,8 @@
     "apiUrl": "https://generativelanguage.googleapis.com/v1beta/models"
   },
   "ollama": {
-    "enabled": false,
+    "enabled": true,
     "baseUrl": "http://127.0.0.1:11434",
-    "model": "llama3.1:8b"
+    "model": "gemma4:e2b"
   }
 }

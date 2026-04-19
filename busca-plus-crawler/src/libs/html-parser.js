@@ -5,10 +5,16 @@ const { generateSlug, extractDomain } = require('./url-utils');
  * Parses HTML content and extracts metadata and content
  */
 class HtmlParser {
-  constructor(html, baseUrl) {
+  constructor(html, baseUrl, options = {}) {
     this.$ = cheerio.load(html);
     this.baseUrl = baseUrl;
     this.primaryContentCache = null;
+    this.options = {
+      contentSelector: String(options.contentSelector || '').trim() || null,
+      excludeSelectors: Array.isArray(options.excludeSelectors)
+        ? options.excludeSelectors.map((item) => String(item || '').trim()).filter(Boolean)
+        : [],
+    };
   }
 
   normalizeComparisonText(text) {
@@ -134,6 +140,16 @@ class HtmlParser {
     const articleFromUrl = this.findArticleForCurrentUrl($);
     if (articleFromUrl && articleFromUrl.length) {
       candidates.push(articleFromUrl.first());
+    }
+
+    if (this.options.contentSelector) {
+      try {
+        $(this.options.contentSelector).each((_, element) => {
+          candidates.unshift($(element));
+        });
+      } catch {
+        // Ignore invalid custom selectors and fall back to heuristics.
+      }
     }
 
     [
@@ -358,6 +374,7 @@ class HtmlParser {
     const $ = this.$;
     $('script, style, nav, footer, header, aside, form, iframe, noscript').remove();
     $('[style*="display: none"], [style*="display:none"], [hidden]').remove();
+    this.removeConfiguredExcludedAreas();
 
     const primaryRoot = this.findPrimaryContentRoot();
     let content = this.getRootText(primaryRoot);
@@ -592,6 +609,7 @@ class HtmlParser {
       '.advertisement',
       '.ad',
       '.ads',
+      ...this.options.excludeSelectors,
     ];
 
     for (const selector of excludedSelectors) {
@@ -711,6 +729,7 @@ class HtmlParser {
     const $ = this.$;
     $('script, style, nav, footer, header, aside, form, iframe, noscript').remove();
     $('[style*="display: none"], [style*="display:none"], [hidden]').remove();
+    this.removeConfiguredExcludedAreas();
 
     const primaryRoot = this.findPrimaryContentRoot();
     if (primaryRoot && primaryRoot.length) {
@@ -722,6 +741,20 @@ class HtmlParser {
     }
 
     return $('body').html();
+  }
+
+  removeConfiguredExcludedAreas() {
+    if (!this.options.excludeSelectors.length) {
+      return;
+    }
+
+    this.options.excludeSelectors.forEach((selector) => {
+      try {
+        this.$(selector).remove();
+      } catch {
+        // Ignore invalid selectors from source config.
+      }
+    });
   }
 }
 

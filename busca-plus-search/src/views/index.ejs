@@ -15,6 +15,10 @@
     <div class="header">
       <a href="/" class="logo">Busca<span>+</span></a>
       <div class="nav-links">
+        <button type="button" class="nav-location-btn js-open-location" title="Alterar localização">
+          <span class="material-icons">location_on</span>
+          <span class="nav-location-label"><%= city ? city : (state ? state : 'Localização') %></span>
+        </button>
         <span class="material-icons">apps</span>
         <span class="material-icons">notifications</span>
         <div class="user-avatar">B</div>
@@ -46,11 +50,21 @@
         <% if (source) { %>
           <input type="hidden" name="source" value="<%= source %>">
         <% } %>
+        <% if (state) { %>
+          <input type="hidden" name="state" value="<%= state %>">
+        <% } %>
+        <% if (city) { %>
+          <input type="hidden" name="city" value="<%= city %>">
+        <% } %>
         <button type="button" class="clear-btn" aria-label="Limpar pesquisa">
           <span class="material-icons">close</span>
         </button>
       </form>
       <div class="nav-links">
+        <button type="button" class="nav-location-btn js-open-location" title="Alterar localização">
+          <span class="material-icons">location_on</span>
+          <span class="nav-location-label"><%= city ? city : (state ? state : 'Localização') %></span>
+        </button>
         <span class="material-icons">apps</span>
         <span class="material-icons">notifications</span>
         <div class="user-avatar">B</div>
@@ -79,7 +93,7 @@
         <div class="ai-report-spinner"></div>
         <div class="ai-report-text">
           <span class="ai-report-label">Gerando relatorio com IA</span>
-          <span class="ai-report-sublabel">Analisando os <%= results.found %> resultados...</span>
+          <span class="ai-report-sublabel">Analisando os <%= totalHits %> resultados...</span>
         </div>
       </div>
       <div class="ai-report-content" id="aiReportContent" hidden>
@@ -130,41 +144,55 @@
       <% } else { %>
         <div class="results-column">
           <div class="stats-line"><%= statsLabel %></div>
-          <% if (typeof sponsors !== 'undefined' && sponsors && sponsors.length > 0) { %>
-            <% sponsors.forEach(function(s) { %>
-              <div class="result-card result-card-sponsored">
-                <div class="result-meta-header">
-                  <span class="result-badge result-badge-sponsored">
-                    <span class="material-icons" style="font-size:0.85rem;vertical-align:-2px">campaign</span>
-                    Patrocinado
-                  </span>
-                  <% if (s.state || s.city) { %>
-                    <span class="result-source"><%= [s.city, s.state].filter(Boolean).join(' — ') %></span>
-                  <% } %>
+          <% const sponsoredSlots = sponsored ? sponsored.slots : null; %>
+          <% if (sponsoredSlots && sponsoredSlots.top && sponsoredSlots.top.length > 0) { %>
+            <section class="sponsored-section" aria-label="Resultados patrocinados">
+              <div class="sponsored-section-header">
+                <div>
+                  <strong>Patrocinados</strong>
+                  <span><%= sponsored.summaryLabel %></span>
                 </div>
-                <h3 class="result-title">
-                  <a href="<%= s.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= s.id %>">
-                    <%= s.name %>
-                  </a>
-                </h3>
-                <div class="result-url">
-                  <span class="breadcrumb">
-                    <i class="material-icons breadcrumb-icon">language</i>
-                    <%= s.url %>
-                  </span>
-                </div>
-                <% if (s.description) { %>
-                  <p class="result-description"><%= s.description %></p>
-                <% } %>
               </div>
-            <% }); %>
+              <div class="sponsored-stack">
+                <% sponsoredSlots.top.forEach((sponsor) => { %>
+                  <article class="result-card result-card-sponsored">
+                    <div class="sponsored-site-line">
+                      <div class="sponsored-site-favicon">
+                        <span class="material-icons">ads_click</span>
+                      </div>
+                      <div class="sponsored-site-info">
+                        <span class="sponsored-site-name"><%= sponsor.name %></span>
+                        <span class="sponsored-site-url"><%= sponsor.urlLabel %></span>
+                      </div>
+                      <span class="sponsored-label">Patrocinado</span>
+                    </div>
+                    <h3 class="result-title result-title-sponsored">
+                      <a href="<%= sponsor.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= sponsor.id %>">
+                        <%= sponsor.name %>
+                      </a>
+                    </h3>
+                    <% if (sponsor.description) { %>
+                      <p class="result-description"><%= sponsor.description %></p>
+                    <% } %>
+                    <% if (sponsor.images && sponsor.images.length > 0) { %>
+                      <div class="sponsor-thumbnails">
+                        <% sponsor.images.forEach((imgUrl) => { %>
+                          <a class="sponsor-thumb-link" href="<%= sponsor.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= sponsor.id %>">
+                            <img class="sponsor-thumb" src="<%= imgUrl %>" alt="<%= sponsor.name %>" loading="lazy" onerror="this.parentElement.style.display='none'">
+                          </a>
+                        <% }) %>
+                      </div>
+                    <% } %>
+                  </article>
+                <% }) %>
+              </div>
+            </section>
           <% } %>
-
           <% if (results && results.length > 0) { %>
-            <% results.forEach((result) => { %>
+            <% results.forEach((result, index) => { %>
               <%
                 const isCatalogDocument = result.recordType === 'catalog_document';
-                const detailHref = result.detailUrl || result.url;
+                const detailHref = result.resultUrl || result.detailUrl || result.url;
                 const resultHref = result.openUrl || result.downloadUrl || result.url;
                 const resultTitle = isCatalogDocument
                   ? [result.documentType, result.documentNumber].filter(Boolean).join(' ') || result.title
@@ -240,21 +268,83 @@
                   </a>
                 </div>
               </div>
+              <% if (sponsoredSlots && sponsoredSlots.inline && sponsoredSlots.inline.some((slot) => slot.insertAfter === (index + 1))) { %>
+                <% sponsoredSlots.inline.filter((slot) => slot.insertAfter === (index + 1)).forEach((slot) => { %>
+                  <% const sponsor = slot.sponsor; %>
+                  <article class="result-card result-card-sponsored result-card-sponsored-inline">
+                    <div class="sponsored-site-line">
+                      <div class="sponsored-site-favicon">
+                        <span class="material-icons">campaign</span>
+                      </div>
+                      <div class="sponsored-site-info">
+                        <span class="sponsored-site-name"><%= sponsor.name %></span>
+                        <span class="sponsored-site-url"><%= sponsor.urlLabel %></span>
+                      </div>
+                      <span class="sponsored-label">Patrocinado</span>
+                    </div>
+                    <h3 class="result-title result-title-sponsored">
+                      <a href="<%= sponsor.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= sponsor.id %>">
+                        <%= sponsor.name %>
+                      </a>
+                    </h3>
+                    <% if (sponsor.description) { %>
+                      <p class="result-description"><%= sponsor.description %></p>
+                    <% } %>
+                  </article>
+                <% }) %>
+              <% } %>
             <% }) %>
           <% } else { %>
             <div class="empty-state compact-empty-state"><h3>Nenhum resultado encontrado</h3></div>
           <% } %>
         </div>
 
-        <% if (sidebar) { %>
+        <% const hasSponsorSidebar = sponsoredSlots && sponsoredSlots.sidebar && sponsoredSlots.sidebar.length > 0; %>
+        <% if (sidebar || hasSponsorSidebar) { %>
           <%
-            const sidebarSummary = sidebar.summary || { totalHits, sourceCount: 0, catalogCount: 0, pageCount: 0 };
-            const featuredResult = sidebar.featuredResult || null;
-            const topSources = sidebar.topSources || [];
-            const documentHighlights = sidebar.documentHighlights || [];
-            const queryIdeas = sidebar.queryIdeas || [];
+            const sidebarSummary = sidebar ? (sidebar.summary || { totalHits, sourceCount: 0, catalogCount: 0, pageCount: 0 }) : null;
+            const featuredResult = sidebar ? (sidebar.featuredResult || null) : null;
+            const topSources = sidebar ? (sidebar.topSources || []) : [];
+            const documentHighlights = sidebar ? (sidebar.documentHighlights || []) : [];
+            const queryIdeas = sidebar ? (sidebar.queryIdeas || []) : [];
           %>
           <aside class="side-column">
+            <% if (hasSponsorSidebar) { %>
+              <div class="side-card sponsor-policy-card">
+                <h4>Inventario patrocinado</h4>
+                <p><%= sponsored.summaryLabel %></p>
+                <% if (sponsored.hiddenCount > 0) { %>
+                  <small><%= sponsored.hiddenCount %> ficaram em rotacao para nao poluir esta pagina.</small>
+                <% } %>
+              </div>
+              <% sponsoredSlots.sidebar.forEach(function(s) { %>
+                <div class="side-card side-card-sponsor">
+                  <div class="sponsor-side-header">
+                    <span class="sponsored-label">Patrocinado</span>
+                  </div>
+                  <h4 class="sponsor-side-name">
+                    <a href="<%= s.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= s.id %>">
+                      <%= s.name %>
+                    </a>
+                  </h4>
+                  <% if (s.description) { %>
+                    <p class="sponsor-side-desc"><%= s.description %></p>
+                  <% } %>
+                  <% const sImgs = Array.isArray(s.images) ? s.images.filter(Boolean) : []; %>
+                  <% if (sImgs.length > 0) { %>
+                    <div class="sponsor-side-images">
+                      <% sImgs.slice(0, 3).forEach(function(imgUrl) { %>
+                        <a href="<%= s.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= s.id %>">
+                          <img src="<%= imgUrl %>" alt="<%= s.name %>" loading="lazy" onerror="this.parentElement.style.display='none'">
+                        </a>
+                      <% }); %>
+                    </div>
+                  <% } %>
+                  <div class="sponsor-side-url"><%= s.url.replace(/^https?:\/\//, '').replace(/\/$/, '') %></div>
+                </div>
+              <% }); %>
+            <% } %>
+            <% if (sidebar) { %>
             <div class="side-card">
               <h4>Panorama da busca</h4>
               <div class="search-summary-grid">
@@ -332,6 +422,7 @@
                   <% }) %>
                 </ul>
               </div>
+            <% } %>
             <% } %>
           </aside>
         <% } %>

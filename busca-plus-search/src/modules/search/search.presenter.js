@@ -1,4 +1,5 @@
 const { RESULTS_PER_PAGE, SEARCH_TABS, SEARCH_TAB_OPTIONS } = require('./search.constants');
+const { buildSponsoredExperience } = require('./sponsor.presenter');
 
 const DEFAULT_TAB = SEARCH_TABS.ALL;
 const MAX_SIDEBAR_ITEMS = 4;
@@ -240,9 +241,10 @@ const buildEmptyIndexViewModel = ({ tab = DEFAULT_TAB } = {}) => ({
   imageResults: null,
   page: 1,
   pagination: null,
-    query: '',
-    results: null,
-    sidebar: null,
+  query: '',
+  results: null,
+  sidebar: null,
+  sponsored: null,
   source: null,
   statsLabel: null,
   tab,
@@ -257,6 +259,7 @@ const buildIndexViewModel = ({
   results = null,
   sourceId = null,
   tab = DEFAULT_TAB,
+  sponsors = [],
   state = null,
   city = null,
 } = {}) => {
@@ -289,6 +292,14 @@ const buildIndexViewModel = ({
       results: results.hits,
       totalHits: results.found,
       sourceId,
+    }),
+    sponsored: isImageTab ? null : buildSponsoredExperience({
+      query,
+      page,
+      results: results.hits,
+      sponsors,
+      state,
+      city,
     }),
     source: sourceId,
     statsLabel: isImageTab

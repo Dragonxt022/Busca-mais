@@ -1,12 +1,24 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
-  <h1 class="h2"><i class="bi bi-folder2-open me-2"></i>Catalogo de Documentos</h1>
-  <div class="btn-group" role="group">
+  <h1 class="h4 mb-0 fw-bold"><i class="bi bi-folder2-open me-2 text-primary"></i>Catálogo de Documentos</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#exportCatalogModal">
+      <i class="bi bi-download me-1"></i>Exportar
+    </button>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        <i class="bi bi-upload me-1"></i>Importar
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="#" onclick="openCatalogImportModal()"><i class="bi bi-collection me-2"></i>Importar Fontes</a></li>
+        <li><a class="dropdown-item" href="#" onclick="openDocumentImportModal()"><i class="bi bi-file-earmark-text me-2"></i>Importar Documentos</a></li>
+      </ul>
+    </div>
     <form action="/admin/catalog/clear-queue" method="POST" class="d-inline">
       <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('Cancelar todas as execucoes em andamento?')">
         <i class="bi bi-x-circle me-1"></i>Limpar Fila
       </button>
     </form>
-    <form action="/admin/catalog/reset-all" method="POST" class="d-inline ms-1">
+    <form action="/admin/catalog/reset-all" method="POST" class="d-inline">
       <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('ATENCAO: Isso ira remover todos os documentos catalogados. Continuar?')">
         <i class="bi bi-trash me-1"></i>Resetar Tudo
       </button>
@@ -219,6 +231,9 @@
                             </button>
                           </form>
                         <% } %>
+                        <button type="button" class="btn btn-outline-secondary" title="Editar Fonte" onclick="openEditSourceModal(<%= source.id %>)">
+                          <i class="bi bi-pencil"></i>
+                        </button>
                         <div class="btn-group">
                           <button type="button" class="btn btn-outline-danger dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Mais opcoes">
                             <i class="bi bi-three-dots-vertical"></i>
@@ -337,7 +352,9 @@
             </div>
             <div class="col-md-7">
               <label class="form-label">Cidade <span class="text-danger">*</span></label>
-              <input type="text" name="city" class="form-control" required placeholder="Ex: Cujubim">
+              <select name="city" class="form-select" id="catalogSourceCity" required disabled>
+                <option value="">Selecione um estado primeiro</option>
+              </select>
             </div>
           </div>
           <div class="mb-3">
@@ -348,6 +365,11 @@
               <option value="daily">Diario</option>
               <option value="weekly">Semanal</option>
             </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Limite de Documentos por Catalogação</label>
+            <input type="number" name="max_documents" class="form-control" min="1" placeholder="Sem limite">
+            <small class="text-muted">Número máximo de documentos por execução (vazio = sem limite)</small>
           </div>
           <div class="mb-3 form-check">
             <input type="checkbox" name="auto_update_enabled" class="form-check-input" id="autoUpdate">
@@ -371,7 +393,362 @@
   </div>
 </div>
 
+<!-- ── Edit Source Modal ── -->
+<div class="modal fade" id="editSourceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Fonte de Catálogo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editSourceId">
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          <input type="text" id="editSourceName" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">URL da Fonte</label>
+          <input type="url" id="editSourceUrl" class="form-control" required>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-5">
+            <label class="form-label">Estado</label>
+            <select id="editSourceState" class="form-select">
+              <option value="">Nenhum</option>
+              <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(function(item) { %>
+                <option value="<%= item[0] %>"><%= item[0] %> — <%= item[1] %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="col-md-7">
+            <label class="form-label">Cidade</label>
+            <select id="editSourceCity" class="form-select" disabled>
+              <option value="">Selecione um estado primeiro</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Agendamento</label>
+          <select id="editSourceSchedule" class="form-select">
+            <option value="manual">Manual</option>
+            <option value="hourly">A cada hora</option>
+            <option value="daily">Diário</option>
+            <option value="weekly">Semanal</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Limite de Documentos por Catalogação</label>
+          <input type="number" id="editSourceMaxDocuments" class="form-control" min="1" placeholder="Sem limite">
+          <small class="text-muted">Número máximo de documentos por execução (vazio = sem limite)</small>
+        </div>
+        <div class="mb-2 form-check">
+          <input type="checkbox" id="editSourceAutoUpdate" class="form-check-input">
+          <label class="form-check-label" for="editSourceAutoUpdate">Atualização automática</label>
+        </div>
+        <div class="mb-2 form-check">
+          <input type="checkbox" id="editSourceAutoIndex" class="form-check-input">
+          <label class="form-check-label" for="editSourceAutoIndex">Indexar automaticamente após catalogação</label>
+        </div>
+        <div class="mb-2 form-check">
+          <input type="checkbox" id="editSourceIsActive" class="form-check-input">
+          <label class="form-check-label" for="editSourceIsActive">Ativo</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="submitEditSource()"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Export Modal ── -->
+<div class="modal fade" id="exportCatalogModal" tabindex="-1">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-download me-2 text-primary"></i>Exportar Catálogo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-2 pb-4 px-4">
+        <p class="text-muted small mb-3">Selecione o que deseja exportar:</p>
+
+        <a href="/admin/catalog/export.csv?mode=sources" class="export-option text-decoration-none" data-bs-dismiss="modal">
+          <div class="export-icon bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-collection"></i>
+          </div>
+          <div>
+            <div class="export-title">Somente Fontes</div>
+            <p class="export-desc">Configurações das fontes de catálogo cadastradas. Ideal para backup ou migração de ambiente.</p>
+          </div>
+        </a>
+
+        <a href="/admin/catalog/export.csv?mode=documents" class="export-option text-decoration-none" data-bs-dismiss="modal">
+          <div class="export-icon bg-success bg-opacity-10 text-success">
+            <i class="bi bi-file-earmark-text"></i>
+          </div>
+          <div>
+            <div class="export-title">Lista de Documentos</div>
+            <p class="export-desc">Todos os documentos catalogados com metadados (tipo, número, datas, URLs). Sem conteúdo extraído.</p>
+          </div>
+        </a>
+
+        <a href="/admin/catalog/export.csv?mode=full" class="export-option text-decoration-none mb-0" data-bs-dismiss="modal">
+          <div class="export-icon bg-info bg-opacity-10 text-info">
+            <i class="bi bi-file-earmark-richtext"></i>
+          </div>
+          <div>
+            <div class="export-title">Documentos com Conteúdo Extraído</div>
+            <p class="export-desc">Inclui o texto completo extraído de cada documento (PDF, DOCX etc.). Arquivo maior, backup total.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import Documents Modal ── -->
+<div class="modal fade" id="importDocumentsCsvModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-arrow-up me-2 text-success"></i>Importar Documentos por CSV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4">
+        <div class="alert alert-info small">
+          <i class="bi bi-info-circle me-1"></i>
+          Use este import para restaurar documentos exportados com a opção <strong>"Lista de Documentos"</strong> ou <strong>"Documentos com Conteúdo"</strong>.
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Arquivo CSV</label>
+          <input type="file" class="form-control" id="documentCsvFile" accept=".csv,text/csv">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Ou cole o CSV aqui</label>
+          <textarea class="form-control font-monospace" id="documentCsvText" rows="8"
+            placeholder="id,source_id,external_id,tipo,numero_ano,descricao,ementa,data_documento,data_publicacao,download_url,detalhe_url,extension,status,extracted_text"></textarea>
+        </div>
+        <div class="alert alert-secondary small mb-0">
+          Colunas: <code>source_id</code> e <code>external_id</code> são obrigatórios. Incluir <code>extracted_text</code> marca status como <em>indexed</em>.
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" onclick="submitDocumentCsvImport()">
+          <i class="bi bi-upload me-1"></i>Importar Documentos
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="importCatalogCsvModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Importar Fontes de Catalogo por CSV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Arquivo CSV</label>
+          <input type="file" class="form-control" id="catalogCsvFile" accept=".csv,text/csv">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Ou cole o CSV</label>
+          <textarea class="form-control font-monospace" id="catalogCsvText" rows="10" placeholder="id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type"></textarea>
+        </div>
+        <div class="alert alert-info mb-0 small">
+          Colunas aceitas: <code>id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type</code>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="submitCatalogCsvImport()">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+const catalogImportModal = new bootstrap.Modal(document.getElementById('importCatalogCsvModal'));
+const documentImportModal = new bootstrap.Modal(document.getElementById('importDocumentsCsvModal'));
+
+function openDocumentImportModal() {
+  document.getElementById('documentCsvFile').value = '';
+  document.getElementById('documentCsvText').value = '';
+  documentImportModal.show();
+}
+
+document.getElementById('documentCsvFile').addEventListener('change', async (e) => {
+  const [file] = e.target.files || [];
+  if (!file) return;
+  document.getElementById('documentCsvText').value = await file.text();
+});
+
+async function submitDocumentCsvImport() {
+  const csvText = document.getElementById('documentCsvText').value.trim();
+  if (!csvText) {
+    alert('Selecione ou cole um CSV antes de importar.');
+    return;
+  }
+  try {
+    const response = await axios.post('/admin/catalog/import-documents', { csv_text: csvText });
+    documentImportModal.hide();
+    alert(`Importação concluída: ${response.data.total} processados (${response.data.created} criados, ${response.data.updated} atualizados).`);
+    location.reload();
+  } catch (error) {
+    alert('Erro: ' + (error.response?.data?.error || error.message));
+  }
+}
+
+async function populateCatalogCities() {
+  const stateSelect = document.querySelector('#newSourceModal select[name="state"]');
+  const citySelect = document.getElementById('catalogSourceCity');
+  const state = stateSelect ? stateSelect.value : '';
+
+  citySelect.innerHTML = '<option value="">Carregando cidades...</option>';
+  citySelect.disabled = true;
+
+  if (!state) {
+    citySelect.innerHTML = '<option value="">Selecione um estado primeiro</option>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/cities?state=' + encodeURIComponent(state));
+    const cities = await response.json();
+    const items = Array.isArray(cities) ? cities : [];
+
+    citySelect.innerHTML = '<option value="">Selecione...</option>';
+    items.forEach((city) => {
+      const option = document.createElement('option');
+      option.value = city;
+      option.textContent = city;
+      citySelect.appendChild(option);
+    });
+  } catch (error) {
+    citySelect.innerHTML = '<option value="">Nao foi possivel carregar as cidades</option>';
+  }
+
+  citySelect.disabled = false;
+}
+
+document.querySelector('#newSourceModal select[name="state"]').addEventListener('change', populateCatalogCities);
+
+function openCatalogImportModal() {
+  document.getElementById('catalogCsvFile').value = '';
+  document.getElementById('catalogCsvText').value = '';
+  catalogImportModal.show();
+}
+
+document.getElementById('catalogCsvFile').addEventListener('change', async (e) => {
+  const [file] = e.target.files || [];
+  if (!file) return;
+  document.getElementById('catalogCsvText').value = await file.text();
+});
+
+async function submitCatalogCsvImport() {
+  const csvText = document.getElementById('catalogCsvText').value.trim();
+  if (!csvText) {
+    alert('Selecione ou cole um CSV antes de importar.');
+    return;
+  }
+
+  try {
+    const response = await axios.post('/admin/catalog/import', { csv_text: csvText });
+    catalogImportModal.hide();
+    alert(`Importacao concluida: ${response.data.total} processadas (${response.data.created} criadas, ${response.data.updated} atualizadas).`);
+    location.reload();
+  } catch (error) {
+    alert('Erro: ' + (error.response?.data?.error || error.message));
+  }
+}
+
+const editSourceModal = new bootstrap.Modal(document.getElementById('editSourceModal'));
+const sourceLookup = {
+  <% (sources || []).forEach((s, idx) => { %>
+  '<%= s.id %>': <%- JSON.stringify({ id: s.id, name: s.name, source_url: s.source_url, state: s.state || '', city: s.city || '', schedule_type: s.schedule_type || 'manual', auto_update_enabled: !!s.auto_update_enabled, auto_index_after_catalog: !!s.auto_index_after_catalog, is_active: !!s.is_active, max_documents: s.max_documents || null }) %><%= idx < (sources || []).length - 1 ? ',' : '' %>
+  <% }) %>
+};
+
+async function openEditSourceModal(id) {
+  const s = sourceLookup[id];
+  if (!s) return;
+  document.getElementById('editSourceId').value = s.id;
+  document.getElementById('editSourceName').value = s.name;
+  document.getElementById('editSourceUrl').value = s.source_url;
+  document.getElementById('editSourceState').value = s.state || '';
+  document.getElementById('editSourceSchedule').value = s.schedule_type || 'manual';
+  document.getElementById('editSourceAutoUpdate').checked = !!s.auto_update_enabled;
+  document.getElementById('editSourceAutoIndex').checked = !!s.auto_index_after_catalog;
+  document.getElementById('editSourceIsActive').checked = !!s.is_active;
+  document.getElementById('editSourceMaxDocuments').value = s.max_documents || '';
+
+  if (s.state) {
+    await loadEditCatalogCities(s.state, s.city);
+  } else {
+    document.getElementById('editSourceCity').innerHTML = '<option value="">Selecione um estado primeiro</option>';
+    document.getElementById('editSourceCity').disabled = true;
+  }
+
+  editSourceModal.show();
+}
+
+async function loadEditCatalogCities(state, selectedCity) {
+  const citySelect = document.getElementById('editSourceCity');
+  citySelect.innerHTML = '<option value="">Carregando...</option>';
+  citySelect.disabled = true;
+  try {
+    const res = await fetch('/api/cities?state=' + encodeURIComponent(state));
+    const cities = await res.json();
+    citySelect.innerHTML = '<option value="">Nenhuma</option>';
+    (Array.isArray(cities) ? cities : []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      if (c === selectedCity) opt.selected = true;
+      citySelect.appendChild(opt);
+    });
+  } catch (_) {
+    citySelect.innerHTML = '<option value="">Erro ao carregar</option>';
+  } finally {
+    citySelect.disabled = false;
+  }
+}
+
+document.getElementById('editSourceState').addEventListener('change', function() {
+  if (this.value) loadEditCatalogCities(this.value, '');
+  else {
+    document.getElementById('editSourceCity').innerHTML = '<option value="">Selecione um estado primeiro</option>';
+    document.getElementById('editSourceCity').disabled = true;
+  }
+});
+
+async function submitEditSource() {
+  const id = document.getElementById('editSourceId').value;
+  const rawMaxDocs = document.getElementById('editSourceMaxDocuments').value;
+  const payload = {
+    name: document.getElementById('editSourceName').value.trim(),
+    source_url: document.getElementById('editSourceUrl').value.trim(),
+    state: document.getElementById('editSourceState').value || null,
+    city: document.getElementById('editSourceCity').value || null,
+    schedule_type: document.getElementById('editSourceSchedule').value,
+    auto_update_enabled: String(document.getElementById('editSourceAutoUpdate').checked),
+    auto_index_after_catalog: String(document.getElementById('editSourceAutoIndex').checked),
+    is_active: String(document.getElementById('editSourceIsActive').checked),
+    max_documents: rawMaxDocs ? parseInt(rawMaxDocs, 10) || '' : '',
+  };
+  try {
+    await axios.put('/admin/catalog/' + id, payload);
+    editSourceModal.hide();
+    location.reload();
+  } catch (err) {
+    alert('Erro: ' + (err.response?.data?.error || err.message));
+  }
+}
+
 async function deleteSource(sourceId, docCount, cascade) {
   let message = 'Excluir esta fonte do catalogo?';
   if (docCount > 0 && !cascade) {

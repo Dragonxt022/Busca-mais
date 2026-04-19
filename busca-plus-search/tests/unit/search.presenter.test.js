@@ -7,6 +7,7 @@ const {
   buildPagination,
   buildSearchUrl,
   buildTabs,
+  buildSponsoredExperience,
   SEARCH_TABS,
 } = require('../../src/modules/search');
 
@@ -20,6 +21,7 @@ test('buildEmptyIndexViewModel returns baseline view state', () => {
     query: '',
     results: null,
     sidebar: null,
+    sponsored: null,
     source: null,
     statsLabel: null,
     tab: SEARCH_TABS.ALL,
@@ -61,6 +63,21 @@ test('buildIndexViewModel maps web results to render payload', () => {
       ],
       found: 12,
     },
+    sponsors: [
+      {
+        id: 11,
+        name: 'Portal Licitacoes Premium',
+        url: 'https://ads.example.com/premium',
+        description: 'Acompanhe licitacoes e contratos em tempo real',
+        images: ['https://ads.example.com/thumb.jpg'],
+      },
+      {
+        id: 12,
+        name: 'Consultoria Editais',
+        url: 'https://ads.example.com/consultoria',
+        description: 'Equipe para leitura de editais e preparo de documentos',
+      },
+    ],
   });
 
   assert.equal(viewModel.query, 'licitacao');
@@ -80,6 +97,8 @@ test('buildIndexViewModel maps web results to render payload', () => {
   assert.equal(viewModel.sidebar.summary.catalogCount, 1);
   assert.equal(viewModel.sidebar.topSources.length, 1);
   assert.equal(viewModel.sidebar.featuredResult.detailUrl, '/page/1');
+  assert.equal(viewModel.sponsored.slots.top.length, 2);
+  assert.equal(viewModel.sponsored.visibleCount, 2);
 });
 
 test('buildIndexViewModel maps image results to render payload', () => {
@@ -111,6 +130,7 @@ test('buildIndexViewModel maps image results to render payload', () => {
   assert.equal(viewModel.totalPages, 2);
   assert.equal(viewModel.statsLabel, '21 imagens para "foto"');
   assert.equal(viewModel.sidebar, null);
+  assert.equal(viewModel.sponsored, null);
 });
 
 test('buildSearchUrl omits default tab and first page', () => {
@@ -128,4 +148,28 @@ test('buildPagination returns null for single page result sets', () => {
     query: 'busca',
     tab: SEARCH_TABS.ALL,
   }), null);
+});
+
+test('buildSponsoredExperience applies slot policy and keeps inventory compact', () => {
+  const sponsored = buildSponsoredExperience({
+    query: 'licitacao',
+    page: 1,
+    results: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+    sponsors: [
+      { id: 1, name: 'Radar Licitacao', url: 'https://a.example.com', description: 'Licitacao diaria' },
+      { id: 2, name: 'Editais Brasil', url: 'https://b.example.com', description: 'Busca de edital' },
+      { id: 3, name: 'Compras Publicas', url: 'https://c.example.com', description: 'Portal de compras' },
+      { id: 4, name: 'Gestao de Contratos', url: 'https://d.example.com', description: 'Apoio juridico' },
+      { id: 5, name: 'Analise de Propostas', url: 'https://e.example.com', description: 'Equipe especializada' },
+      { id: 6, name: 'Capacitacao', url: 'https://f.example.com', description: 'Treinamento para disputa' },
+    ],
+  });
+
+  assert.equal(sponsored.totalEligible, 6);
+  assert.equal(sponsored.visibleCount, 5);
+  assert.equal(sponsored.hiddenCount, 1);
+  assert.equal(sponsored.slots.top.length, 2);
+  assert.equal(sponsored.slots.inline.length, 1);
+  assert.equal(sponsored.slots.inline[0].insertAfter, 3);
+  assert.equal(sponsored.slots.sidebar.length, 2);
 });

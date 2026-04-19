@@ -5,16 +5,39 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const mammoth = require('mammoth');
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
+const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+const { createCanvas } = require('@napi-rs/canvas');
+const Tesseract = require('tesseract.js');
 const XLSX = require('xlsx');
+const textCleaner = require('../../../utils/textCleaner');
 
 const execFileAsync = promisify(execFile);
+
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    return { canvas, context: canvas.getContext('2d') };
+  }
+
+  reset(canvasAndContext, width, height) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+
+  destroy(canvasAndContext) {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+  }
+}
 
 class CatalogDocumentContentService {
   constructor() {
     this.maxCharacters = 50000;
     this.requestTimeoutMs = 30000;
     this.execFileAsync = execFileAsync;
+    this.ocrMaxPages = 15;
+    this.ocrMinTextRatio = 0.45;
   }
 
   isOleCompoundDocument(buffer) {
@@ -47,13 +70,17 @@ class CatalogDocumentContentService {
   }
 
   buildExtractionResult(text, type, info = {}) {
+    const processed = textCleaner.processText(text, { maxLength: this.maxCharacters });
+
     return {
       info,
-      markdown: this.toMarkdown(text),
+      blocks: processed.blocks,
+      hasContent: processed.has_content,
+      markdown: this.toMarkdown(processed.clean_text),
       numpages: 0,
       numrender: 0,
-      text,
-      textLength: text.length,
+      text: processed.clean_text,
+      textLength: processed.clean_text.length,
       type,
     };
   }
@@ -136,17 +163,10 @@ class CatalogDocumentContentService {
   }
 
   toMarkdown(text) {
-    if (!text) {
-      return '';
-    }
-
-    return text
-      .split(/\n{2,}/)
-      .map((block) => block.trim())
-      .filter(Boolean)
-      .map((block, index) => (index === 0 ? `# Documento\n\n${block}` : block))
-      .join('\n\n')
-      .slice(0, this.maxCharacters);
+    return textCleaner.cleanMarkdown(text, {
+      maxLength: this.maxCharacters,
+      title: 'Documento',
+    });
   }
 
   normalizeText(text) {
@@ -154,39 +174,97 @@ class CatalogDocumentContentService {
       return '';
     }
 
-    return text
+    const normalized = text
       .replace(/\r/g, '\n')
       .replace(/\u0000/g, ' ')
       .replace(/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/gim, ' ')
       .replace(/^\s*page\s+\d+\s*$/gim, ' ')
-      .replace(/^\s*\d+\s*$/gm, ' ')
       .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{2,}/g, '\n')
-      .trim()
-      .slice(0, this.maxCharacters);
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    return textCleaner.cleanText(normalized, { maxLength: this.maxCharacters });
+  }
+
+  looksLikeGarbage(text) {
+    if (!text || text.length < 20) return true;
+    const latinChars = (text.match(/[a-zA-ZÀ-ÿ0-9\s.,;:!?()\-\/]/g) || []).length;
+    return (latinChars / text.length) < this.ocrMinTextRatio;
+  }
+
+  async renderPageToImageBuffer(page) {
+    const scale = 2.0;
+    const viewport = page.getViewport({ scale });
+    const canvasFactory = new NodeCanvasFactory();
+    const { canvas, context } = canvasFactory.create(viewport.width, viewport.height);
+
+    await page.render({ canvasContext: context, viewport, canvasFactory }).promise;
+
+    const imageBuffer = canvas.toBuffer('image/png');
+    canvasFactory.destroy({ canvas, context });
+    return imageBuffer;
+  }
+
+  async extractPdfViaOcr(buffer) {
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useSystemFonts: true,
+      disableFontFace: true,
+      isEvalSupported: false,
+    });
+
+    const pdfDoc = await loadingTask.promise;
+    const maxPages = Math.min(pdfDoc.numPages, this.ocrMaxPages);
+    const worker = await Tesseract.createWorker('por');
+    const texts = [];
+
+    try {
+      for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+        const imgBuffer = await this.renderPageToImageBuffer(page);
+        const { data: { text } } = await worker.recognize(imgBuffer);
+        const normalized = this.normalizeText(text);
+        if (normalized) texts.push(normalized);
+      }
+    } finally {
+      await worker.terminate();
+    }
+
+    const fullText = texts.join('\n\n').trim();
+    if (!fullText) throw new Error('OCR nao extraiu texto util do PDF');
+
+    return {
+      ...this.buildExtractionResult(fullText, 'pdf', { ocr: true }),
+      numpages: pdfDoc.numPages,
+      numrender: maxPages,
+    };
   }
 
   async extractPdf(buffer) {
-    const parser = new PDFParse({
-      data: buffer,
-    });
+    let data;
+    let pdfParseError;
 
-    const data = await parser.getText();
-    await parser.destroy();
-    const text = this.normalizeText(data.text);
+    try {
+      data = await pdfParse(buffer);
+    } catch (err) {
+      pdfParseError = err;
+    }
 
-    if (!text) {
-      throw new Error('Nenhum texto util foi extraido do PDF');
+    const text = data ? this.normalizeText(data.text) : '';
+
+    if (!text || this.looksLikeGarbage(text)) {
+      try {
+        return await this.extractPdfViaOcr(buffer);
+      } catch (ocrError) {
+        if (pdfParseError) throw pdfParseError;
+        throw new Error(`Nenhum texto util foi extraido do PDF: ${ocrError.message}`);
+      }
     }
 
     return {
-      info: data.info || {},
-      markdown: this.toMarkdown(text),
+      ...this.buildExtractionResult(text, 'pdf', data.info || {}),
       numpages: data.numpages || 0,
       numrender: data.numrender || 0,
-      text,
-      textLength: text.length,
-      type: 'pdf',
     };
   }
 
@@ -277,15 +355,7 @@ class CatalogDocumentContentService {
       throw new Error('Nenhum texto util foi extraido do DOCX');
     }
 
-    return {
-      info: {},
-      markdown: this.toMarkdown(text),
-      numpages: 0,
-      numrender: 0,
-      text,
-      textLength: text.length,
-      type: 'docx',
-    };
+    return this.buildExtractionResult(text, 'docx');
   }
 
   async extractSpreadsheet(buffer, type) {
@@ -311,15 +381,7 @@ class CatalogDocumentContentService {
       throw new Error(`Nenhum texto util foi extraido do ${type.toUpperCase()}`);
     }
 
-    return {
-      info: { sheets: workbook.SheetNames },
-      markdown: this.toMarkdown(text),
-      numpages: 0,
-      numrender: 0,
-      text,
-      textLength: text.length,
-      type,
-    };
+    return this.buildExtractionResult(text, type, { sheets: workbook.SheetNames });
   }
 
   async extractFromDocumentUrl(downloadUrl) {

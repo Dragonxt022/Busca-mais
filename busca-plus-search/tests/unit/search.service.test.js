@@ -16,7 +16,7 @@ test('SearchService.buildSearchParams applies source filter and paging', () => {
   assert.equal(params.q, 'contrato');
   assert.equal(params.page, 3);
   assert.equal(params.per_page, 10);
-  assert.equal(params.filter_by, 'source_id:99');
+  assert.equal(params.filter_by, 'source_id:=99');
   assert.equal(params.sort_by, '_text_match:desc,crawled_at:desc');
 });
 

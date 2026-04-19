@@ -32,13 +32,38 @@ class CrawlWorker {
         try {
           const source = await Source.findByPk(sourceId);
           const downloadImages = source ? await source.shouldDownloadImages() : false;
+          const parserConfig = {
+            contentSelector: source?.config_json?.contentSelector || '',
+            excludeSelectors: Array.isArray(source?.config_json?.excludeSelectors)
+              ? source.config_json.excludeSelectors
+              : [],
+          };
 
           const result = await this.crawler.crawlPage(url, {
             extractLinks: false,
             downloadImages,
+            parserConfig,
           });
 
           if (!result.success) {
+            if (crawlJobId) {
+              const crawlJob = await CrawlJob.findByPk(crawlJobId).catch(() => null);
+              if (crawlJob) {
+                const totalPages = Number(crawlJob.pages_found || 0);
+                const newCrawled = Number(crawlJob.pages_crawled || 0) + 1;
+                const newErrored = Number(crawlJob.pages_errored || 0) + 1;
+                const isComplete = totalPages > 0 ? newCrawled >= totalPages : false;
+
+                await crawlJob.update({
+                  pages_crawled: newCrawled,
+                  pages_errored: newErrored,
+                  status: isComplete ? 'failed' : 'running',
+                  finished_at: isComplete ? new Date() : null,
+                  error_message: result.error,
+                }).catch(() => {});
+              }
+            }
+
             await Page.update(
               {
                 has_error: true,
@@ -63,7 +88,12 @@ class CrawlWorker {
             response_time_ms: result.responseTimeMs,
             images: downloadImages ? (result.processedImages || null) : null,
             language: result.language,
-            metadata_json: result.metadata,
+            metadata_json: {
+              ...(result.metadata || {}),
+              clean_text: result.contentText || '',
+              content_blocks: Array.isArray(result.contentBlocks) ? result.contentBlocks : [],
+              has_content: Boolean(result.hasContent),
+            },
             has_error: false,
             error_message: null,
           };
@@ -74,11 +104,14 @@ class CrawlWorker {
           if (crawlJobId) {
             const crawlJob = await CrawlJob.findByPk(crawlJobId);
             if (crawlJob) {
-              const newProcessed = (crawlJob.processed_pages || 0) + 1;
-              const isComplete = newProcessed >= crawlJob.total_pages;
+              const totalPages = Number(crawlJob.pages_found || 0);
+              const newCrawled = Number(crawlJob.pages_crawled || 0) + 1;
+              const newSaved = Number(crawlJob.pages_saved || 0) + 1;
+              const isComplete = totalPages > 0 ? newCrawled >= totalPages : false;
               
               await crawlJob.update({
-                processed_pages: newProcessed,
+                pages_crawled: newCrawled,
+                pages_saved: newSaved,
                 status: isComplete ? 'completed' : 'running',
                 finished_at: isComplete ? new Date() : null,
               });
@@ -143,6 +176,8 @@ class CrawlWorker {
                     extracted_at: new Date().toISOString(),
                     extracted_format: extractedContent.type,
                     extracted_markdown: extractedContent.markdown,
+                    extracted_blocks: extractedContent.blocks,
+                    has_content: extractedContent.hasContent,
                     extracted_pages: extractedContent.numpages,
                     extracted_text: extractedContent.text,
                     extracted_text_length: extractedContent.textLength,
@@ -240,7 +275,7 @@ class CrawlWorker {
     this.discoverWorker = new Worker(
       QUEUE_NAMES.DISCOVER,
       async (job) => {
-        const { sourceId, startUrl, maxPages = 50, jobId } = job.data;
+        const { sourceId, startUrl, maxPages = 50, maxDepth = 1, jobId } = job.data;
         logger.info(`Processing discover job ${job.id}: source ${sourceId}`);
 
         try {
@@ -258,7 +293,9 @@ class CrawlWorker {
 
           const links = await this.crawler.discoverLinks(startUrl, {
             maxLinks: maxPages,
+            maxDepth,
             sameDomain: true,
+            delay: Number(source.delay_between_requests || 0),
           });
 
           logger.info(`Discovered ${links.length} links from ${startUrl}`);
@@ -296,6 +333,7 @@ class CrawlWorker {
                 status: 'completed', 
                 finished_at: new Date(),
                 pages_found: links.length,
+                result_json: { discovered: links.length, created: newCount, maxDepth },
               },
               { where: { id: jobId } }
             );

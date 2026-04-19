@@ -7,6 +7,7 @@ const {
   SEARCH_TABS,
   SearchService,
   buildIndexViewModel,
+  buildPageViewModel,
 } = require('../../modules/search');
 const AiSummaryService = require('../../modules/ai/ai-summary.service');
 const config = require('../../config');
@@ -74,11 +75,10 @@ class SearchController {
       ]);
 
       return res.render('index', {
-        ...buildIndexViewModel({ page, query, results, sourceId, tab }),
+        ...buildIndexViewModel({ page, query, results, sourceId, tab, sponsors, state, city }),
         aiFeatures,
         state,
         city,
-        sponsors,
       });
     } catch (error) {
       return next(error);
@@ -120,7 +120,7 @@ class SearchController {
         throw errorTypes.NOT_FOUND('Pagina');
       }
 
-      return res.render('page', { page, query, focus, aiFeatures });
+      return res.render('page', buildPageViewModel({ page, query, focus, aiFeatures }));
     } catch (error) {
       return next(error);
     }

@@ -1,6 +1,7 @@
 const { typesense, COLLECTION_NAME, ensureCollection } = require('../config/typesense');
 const { logger } = require('./logger');
 const { extractDomain } = require('./url-utils');
+const textCleaner = require('../utils/textCleaner');
 
 class Indexer {
   constructor() {
@@ -96,7 +97,7 @@ class Indexer {
 
   generateDescription(content, maxLength = 200) {
     if (!content) return '';
-    const cleaned = content.replace(/\s+/g, ' ').trim();
+    const cleaned = textCleaner.cleanText(content, { maxLength: maxLength * 3 }).replace(/\s+/g, ' ').trim();
     if (cleaned.length <= maxLength) return cleaned;
     return `${cleaned.substring(0, maxLength).replace(/\s\S*$/, '')}...`;
   }
@@ -106,7 +107,7 @@ class Indexer {
       return '';
     }
 
-    const cleanText = text
+    const cleanText = textCleaner.cleanText(text, { maxLength: maxLength * 4 })
       .replace(/[#>*_`]/g, ' ')
       .replace(/https?:\/\/\S+/gi, ' ')
       .replace(/p[aá]gina inicial\s*\/\s*[^.]+/gi, ' ')
@@ -174,7 +175,9 @@ class Indexer {
   }
 
   sanitizeCatalogText(value) {
-    const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+    const normalized = textCleaner.cleanText(String(value || ''), { maxLength: 1000 })
+      .replace(/\s+/g, ' ')
+      .trim();
 
     if (!normalized || /^detalhar$/i.test(normalized)) {
       return '';
@@ -183,12 +186,43 @@ class Indexer {
     return normalized;
   }
 
+  normalizeCatalogMarkdown(markdown, title) {
+    const raw = String(markdown || '').trim();
+
+    if (!raw) {
+      return '';
+    }
+
+    const lines = raw.split(/\r?\n/);
+    const firstLine = String(lines[0] || '').trim();
+
+    if (/^#\s+documento\s*$/i.test(firstLine)) {
+      lines[0] = `# ${title}`;
+      return lines.join('\n').trim();
+    }
+
+    if (!/^#\s+/.test(firstLine)) {
+      return `# ${title}\n\n${raw}`.trim();
+    }
+
+    return raw;
+  }
+
   buildPageDocument(page) {
     const imageData = this.parseImagesForIndex(page.images);
+    const pageTextProcessing = textCleaner.processText(page.content_text || '');
     const metadataImage = page.metadata_json?.image || null;
     const metadataTitle = page.metadata_json?.title || page.title || '';
-    const description = page.description || this.generateDescription(page.content_text);
-    const summarySource = description || page.content_text || page.title || '';
+    const cleanedContentText = pageTextProcessing.clean_text;
+    const contentBlocks = Array.isArray(page.metadata_json?.content_blocks)
+      ? page.metadata_json.content_blocks
+      : pageTextProcessing.blocks;
+    const hasContent = typeof page.metadata_json?.has_content === 'boolean'
+      ? page.metadata_json.has_content
+      : pageTextProcessing.has_content;
+    const cleanedDescription = textCleaner.cleanText(page.description || '', { maxLength: 1000 });
+    const description = cleanedDescription || this.generateDescription(cleanedContentText);
+    const summarySource = description || cleanedContentText || page.title || '';
     const summary = this.generateSummary(summarySource);
     const coverImage = imageData.cover_image || metadataImage || null;
     const coverThumbnail = imageData.cover_thumbnail || metadataImage || null;
@@ -207,7 +241,9 @@ class Indexer {
       id: String(page.id),
       title: page.title || '',
       description,
-      content: page.content_text || '',
+      content: cleanedContentText,
+      content_blocks: contentBlocks,
+      has_content: hasContent,
       summary,
       url: page.url,
       slug: page.slug || '',
@@ -223,7 +259,7 @@ class Indexer {
       publication_date: '',
       download_url: '',
       file_extension: '',
-      markdown_content: page.content_text || '',
+      markdown_content: textCleaner.cleanMarkdown(cleanedContentText, { title: page.title || 'Pagina' }),
       images,
       image_alts: imageAlts,
       image_thumbnails: imageThumbnails,
@@ -235,6 +271,7 @@ class Indexer {
       cover_alt: coverAlt,
       source_state: page.source?.state || '',
       source_city: page.source?.city || '',
+      source_result_link_type: page.source?.result_link_type || 'detail_page',
       language: page.language || 'pt',
       crawled_at: page.last_crawled_at ? new Date(page.last_crawled_at).getTime() : Date.now(),
       relevance_score: this.calculateRelevanceScore(page),
@@ -250,21 +287,26 @@ class Indexer {
     const publicationDate = this.sanitizeCatalogText(document.data_publicacao);
     const titleParts = [documentType, documentNumber].filter(Boolean);
     const title = titleParts.length > 0 ? titleParts.join(' ') : (description || 'Documento de catalogo');
+    const extractedText = textCleaner.cleanText(
+      String(document.metadata_json?.extracted_text || document.metadata_json?.raw_text || ''),
+      { maxLength: 50000 }
+    );
+    const contentSource = extractedText || [description, ementaText].filter(Boolean).join('\n\n');
+    const documentTextProcessing = textCleaner.processText(contentSource);
     const primaryUrl = document.download_url || document.detalhe_url || document.source?.source_url || '';
     const domain = primaryUrl ? extractDomain(primaryUrl) : extractDomain(document.source?.source_url || '');
-    const content = [
-      documentType,
-      documentNumber,
-      description,
-      ementaText,
-      documentDate,
-      publicationDate,
-      document.metadata_json?.extracted_text,
-      document.metadata_json?.raw_text,
-    ].filter(Boolean).join('\n');
+    const content = documentTextProcessing.clean_text;
+    const contentBlocks = Array.isArray(document.metadata_json?.extracted_blocks)
+      ? document.metadata_json.extracted_blocks
+      : documentTextProcessing.blocks;
+    const hasContent = typeof document.metadata_json?.has_content === 'boolean'
+      ? document.metadata_json.has_content
+      : documentTextProcessing.has_content;
     const crawledAt = document.updated_at || document.created_at || new Date();
-    const markdownContent = document.metadata_json?.extracted_markdown || description || ementaText || title;
-    const summarySource = description || ementaText || content;
+    const markdownContent = document.metadata_json?.extracted_markdown
+      ? this.normalizeCatalogMarkdown(document.metadata_json.extracted_markdown, title)
+      : textCleaner.cleanMarkdown(content || description || ementaText || title, { title });
+    const summarySource = ementaText || description || content;
     const summary = this.generateSummary(summarySource);
 
     return {
@@ -272,6 +314,8 @@ class Indexer {
       title,
       description: description || ementaText || title,
       content,
+      content_blocks: contentBlocks,
+      has_content: hasContent,
       summary,
       url: primaryUrl,
       slug: document.external_id || `catalog-${document.id}`,
@@ -299,6 +343,7 @@ class Indexer {
       relevance_score: this.calculateCatalogRelevanceScore(document),
       source_state: document.source?.state || '',
       source_city: document.source?.city || '',
+      source_result_link_type: document.source?.result_link_type || 'detail_page',
     };
   }
 

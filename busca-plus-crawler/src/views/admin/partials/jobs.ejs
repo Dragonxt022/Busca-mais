@@ -1,8 +1,13 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
-  <h1 class="h2"><i class="bi bi-clock-history me-2"></i>Jobs de Coleta</h1>
-  <div class="btn-toolbar mb-2 mb-md-0">
-    <button class="btn btn-outline-danger btn-sm" onclick="cleanCompletedJobs()">
-      <i class="bi bi-trash me-1"></i> Limpar Jobs Concluídos
+  <h1 class="h4 mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Jobs de Coleta</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <% const statusParam = pagination?.status || ''; %>
+    <a href="/admin/jobs" class="btn btn-sm <%= !statusParam ? 'btn-primary' : 'btn-outline-secondary' %>">Todos</a>
+    <a href="/admin/jobs?status=running" class="btn btn-sm <%= statusParam === 'running' ? 'btn-primary' : 'btn-outline-secondary' %>"><i class="bi bi-play-circle me-1"></i>Ativos</a>
+    <a href="/admin/jobs?status=pending" class="btn btn-sm <%= statusParam === 'pending' ? 'btn-warning' : 'btn-outline-secondary' %>"><i class="bi bi-hourglass me-1"></i>Pendentes</a>
+    <a href="/admin/jobs?status=failed" class="btn btn-sm <%= statusParam === 'failed' ? 'btn-danger' : 'btn-outline-secondary' %>"><i class="bi bi-x-circle me-1"></i>Falhas</a>
+    <button class="btn btn-sm btn-outline-danger" onclick="cleanCompletedJobs()">
+      <i class="bi bi-trash me-1"></i>Limpar Concluídos
     </button>
   </div>
 </div>
@@ -17,7 +22,7 @@
             <th>Fonte</th>
             <th>Tipo</th>
             <th>Status</th>
-            <th>Páginas Processadas</th>
+            <th>Progresso</th>
             <th>Iniciado</th>
             <th>Ações</th>
           </tr>
@@ -26,44 +31,83 @@
           <% if (data?.data?.length > 0) { %>
             <% data.data.forEach(job => { %>
               <tr id="job-<%= job.id %>">
-                <td><small>#<%= job.id %></small></td>
-                <td><span class="badge bg-light text-dark"><%= job.source?.name || '-' %></span></td>
-                <td><span class="badge bg-secondary"><%= job.type %></span></td>
+                <td><small class="text-muted">#<%= job.id %></small></td>
                 <td>
-                  <span class="badge <%= job.status === 'completed' ? 'bg-success' : job.status === 'failed' ? 'bg-danger' : job.status === 'active' ? 'bg-primary' : job.status === 'pending' ? 'bg-warning' : 'bg-secondary' %>">
-                    <%= job.status %>
+                  <span class="fw-semibold"><%= job.source?.name || '—' %></span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary-subtle text-secondary border"><%= job.type %></span>
+                </td>
+                <td>
+                  <span class="badge rounded-pill <%=
+                    job.status === 'completed' ? 'bg-success' :
+                    job.status === 'failed'    ? 'bg-danger'  :
+                    job.status === 'running'   ? 'bg-primary' :
+                    job.status === 'pending'   ? 'bg-warning text-dark' : 'bg-secondary'
+                  %>">
+                    <%= job.status === 'completed' ? 'Concluído' :
+                        job.status === 'failed'    ? 'Falha' :
+                        job.status === 'running'   ? 'Executando' :
+                        job.status === 'pending'   ? 'Pendente' :
+                        job.status === 'cancelled' ? 'Cancelado' : job.status %>
                   </span>
                 </td>
-                <td><%= job.processed_pages || 0 %> / <%= job.total_pages || 0 %></td>
-                <td><small><%= new Date(job.created_at).toLocaleString('pt-BR') %></small></td>
                 <td>
-                  <% if (job.status === 'pending' || job.status === 'active') { %>
-                    <button class="btn btn-sm btn-outline-warning" onclick="cancelJob('<%= job.id %>')" title="Cancelar">
-                      <i class="bi bi-x-circle"></i>
-                    </button>
+                  <% const found = Number(job.pages_found || 0); %>
+                  <% const crawled = Number(job.pages_crawled || 0); %>
+                  <% const pct = found > 0 ? Math.round((crawled / found) * 100) : 0; %>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height:6px;min-width:70px;">
+                      <div class="progress-bar <%= job.status === 'failed' ? 'bg-danger' : job.status === 'completed' ? 'bg-success' : 'bg-primary' %>"
+                        role="progressbar" style="width:<%= pct %>%"></div>
+                    </div>
+                    <small class="text-muted text-nowrap"><%= crawled %>/<%= found %></small>
+                  </div>
+                  <% if (job.pages_errored > 0) { %>
+                    <small class="text-danger d-block"><i class="bi bi-exclamation-triangle me-1"></i><%= job.pages_errored %> erros</small>
                   <% } %>
-                  <% if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') { %>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteJob('<%= job.id %>')" title="Excluir">
-                      <i class="bi bi-trash"></i>
-                    </button>
+                </td>
+                <td>
+                  <small class="text-muted"><%= new Date(job.created_at).toLocaleString('pt-BR') %></small>
+                  <% if (job.finished_at) { %>
+                    <small class="text-muted d-block">até <%= new Date(job.finished_at).toLocaleString('pt-BR') %></small>
                   <% } %>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <% if (job.status === 'pending' || job.status === 'running') { %>
+                      <button class="btn btn-outline-warning" onclick="cancelJob('<%= job.id %>')" title="Cancelar">
+                        <i class="bi bi-x-circle"></i>
+                      </button>
+                    <% } %>
+                    <% if (['completed','failed','cancelled'].includes(job.status)) { %>
+                      <button class="btn btn-outline-danger" onclick="deleteJob('<%= job.id %>')" title="Excluir">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    <% } %>
+                  </div>
                 </td>
               </tr>
             <% }); %>
           <% } else { %>
-            <tr><td colspan="7" class="text-center text-muted py-4">Nenhum job encontrado</td></tr>
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
+                Nenhum job encontrado
+              </td>
+            </tr>
           <% } %>
         </tbody>
       </table>
     </div>
   </div>
   <% if (data?.pages > 1) { %>
-    <div class="card-footer">
+    <div class="card-footer bg-white">
       <nav>
-        <ul class="pagination justify-content-center mb-0">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
           <% for (let i = 1; i <= data.pages; i++) { %>
             <li class="page-item <%= data.page === i ? 'active' : '' %>">
-              <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+              <a class="page-link" href="?page=<%= i %><%= pagination?.status ? '&status=' + pagination.status : '' %>"><%= i %></a>
             </li>
           <% } %>
         </ul>

@@ -38,3 +38,31 @@ test('HtmlParser keeps title, text and image from the same primary article', () 
   assert.match(payload.contentText, /fortalecimento da seguranca escolar/i);
   assert.equal(payload.images[0].src, 'https://cujubim.ro.gov.br/uploads/reuniao-seguranca.jpg');
 });
+
+test('HtmlParser supports source-level include and exclude selectors', () => {
+  const html = `
+    <html>
+      <body>
+        <div class="elementor-widget-theme-post-content">
+          <p>Conteudo principal da materia com informacoes relevantes para indexacao.</p>
+        </div>
+        <section id="comments" class="comments-area">
+          <p>Nenhum comentario</p>
+        </section>
+        <section class="related-posts">
+          <p>Veja tambem outra noticia que nao deve entrar na coleta.</p>
+        </section>
+      </body>
+    </html>
+  `;
+
+  const parser = new HtmlParser(html, 'https://cujubim.ro.gov.br/noticias/teste', {
+    contentSelector: '.elementor-widget-theme-post-content',
+    excludeSelectors: ['#comments', '.related-posts'],
+  });
+  const payload = parser.extractAll();
+
+  assert.match(payload.contentText, /Conteudo principal da materia/);
+  assert.doesNotMatch(payload.contentText, /Nenhum comentario/);
+  assert.doesNotMatch(payload.contentText, /Veja tambem outra noticia/);
+});
