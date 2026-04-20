@@ -150,6 +150,11 @@
             <input type="number" class="form-control" name="crawlDepth" value="3" min="1" max="5">
           </div>
           <div class="mb-3">
+            <label class="form-label">Limite de paginas por coleta</label>
+            <input type="number" class="form-control" name="maxPages" min="1" placeholder="Sem limite">
+            <small class="text-muted">Mesmo conceito do limite do catalogo. Deixe vazio para usar o padrao por profundidade.</small>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Tempo entre Requisicoes (ms)</label>
             <input type="number" class="form-control" name="delayBetweenRequests" value="1000" min="100" step="100">
           </div>
@@ -171,6 +176,18 @@
             <div class="form-check">
               <input type="checkbox" class="form-check-input" name="followInternalLinks" id="followLinks" checked>
               <label class="form-check-label" for="followLinks">Seguir links internos</label>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="paginationEnabled" id="paginationEnabled" checked>
+                <label class="form-check-label" for="paginationEnabled">Seguir paginas paginadas</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Limite de paginas de listagem</label>
+              <input type="number" class="form-control" name="maxPaginationPages" value="50" min="0" max="500">
             </div>
           </div>
           <div class="mb-3">
@@ -303,10 +320,10 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Ou cole o CSV</label>
-          <textarea class="form-control font-monospace" id="sourceCsvText" rows="10" placeholder="id,name,base_url,type,category,is_active,crawl_depth,follow_internal_links,download_images,take_screenshots,delay_between_requests,user_agent,schedule,state,city"></textarea>
+          <textarea class="form-control font-monospace" id="sourceCsvText" rows="10" placeholder="id,name,base_url,type,category,is_active,crawl_depth,follow_internal_links,download_images,take_screenshots,delay_between_requests,user_agent,schedule,state,city,max_pages"></textarea>
         </div>
         <div class="alert alert-info mb-0 small">
-          Colunas aceitas: <code>id,name,base_url,type,category,is_active,crawl_depth,follow_internal_links,download_images,take_screenshots,delay_between_requests,user_agent,schedule,state,city</code>
+          Colunas aceitas: <code>id,name,base_url,type,category,is_active,crawl_depth,follow_internal_links,download_images,take_screenshots,delay_between_requests,user_agent,schedule,state,city,max_pages</code>
         </div>
       </div>
       <div class="modal-footer">
@@ -332,10 +349,13 @@
         state: <%- JSON.stringify(source.state || '') %>,
         city: <%- JSON.stringify(source.city || '') %>,
         crawlDepth: <%= Number(source.crawl_depth || 3) %>,
+        maxPages: <%= source.max_pages ? Number(source.max_pages) : 'null' %>,
         delayBetweenRequests: <%= Number(source.delay_between_requests || 1000) %>,
         userAgent: <%- JSON.stringify(source.user_agent || '') %>,
         contentSelector: <%- JSON.stringify(source.config_json?.contentSelector || '') %>,
         excludeSelectors: <%- JSON.stringify(Array.isArray(source.config_json?.excludeSelectors) ? source.config_json.excludeSelectors.join('\n') : '') %>,
+        paginationEnabled: <%= source.config_json?.paginationEnabled === false ? 'false' : 'true' %>,
+        maxPaginationPages: <%= Number(source.config_json?.maxPaginationPages || 50) %>,
         followInternalLinks: <%= source.follow_internal_links !== false ? 'true' : 'false' %>,
         downloadImages: <%= source.download_images ? 'true' : 'false' %>,
         takeScreenshots: <%= source.take_screenshots ? 'true' : 'false' %>,
@@ -352,10 +372,13 @@
     document.getElementById('sourceModalSubmit').textContent = 'Cadastrar';
     sourceForm.querySelector('[name=category]').value = 'general';
     sourceForm.querySelector('[name=crawlDepth]').value = '3';
+    sourceForm.querySelector('[name=maxPages]').value = '';
     sourceForm.querySelector('[name=delayBetweenRequests]').value = '1000';
     sourceForm.querySelector('[name=contentSelector]').value = '';
     sourceForm.querySelector('[name=excludeSelectors]').value = '';
     sourceForm.querySelector('[name=followInternalLinks]').checked = true;
+    sourceForm.querySelector('[name=paginationEnabled]').checked = true;
+    sourceForm.querySelector('[name=maxPaginationPages]').value = '50';
     sourceForm.querySelector('[name=downloadImages]').checked = false;
     sourceForm.querySelector('[name=takeScreenshots]').checked = false;
     sourceForm.querySelector('[name=isActive]').checked = true;
@@ -385,11 +408,14 @@
       sourceForm.querySelector('[name=category]').value = source.category || 'general';
       sourceForm.querySelector('[name=state]').value = source.state || '';
       sourceForm.querySelector('[name=crawlDepth]').value = String(source.crawlDepth || 3);
+      sourceForm.querySelector('[name=maxPages]').value = source.maxPages || '';
       sourceForm.querySelector('[name=delayBetweenRequests]').value = String(source.delayBetweenRequests || 1000);
       sourceForm.querySelector('[name=userAgent]').value = source.userAgent || '';
       sourceForm.querySelector('[name=contentSelector]').value = source.contentSelector || '';
       sourceForm.querySelector('[name=excludeSelectors]').value = source.excludeSelectors || '';
       sourceForm.querySelector('[name=followInternalLinks]').checked = !!source.followInternalLinks;
+      sourceForm.querySelector('[name=paginationEnabled]').checked = source.paginationEnabled !== false;
+      sourceForm.querySelector('[name=maxPaginationPages]').value = String(source.maxPaginationPages ?? 50);
       sourceForm.querySelector('[name=downloadImages]').checked = !!source.downloadImages;
       sourceForm.querySelector('[name=takeScreenshots]').checked = !!source.takeScreenshots;
       sourceForm.querySelector('[name=isActive]').checked = !!source.isActive;
@@ -457,6 +483,9 @@
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
     data.followInternalLinks = form.querySelector('[name=followInternalLinks]').checked;
+    data.paginationEnabled = form.querySelector('[name=paginationEnabled]').checked;
+    data.maxPaginationPages = parseInt(form.querySelector('[name=maxPaginationPages]').value, 10) || 0;
+    data.maxPages = data.maxPages ? parseInt(data.maxPages, 10) || null : null;
     data.downloadImages = form.querySelector('[name=downloadImages]').checked;
     data.takeScreenshots = form.querySelector('[name=takeScreenshots]').checked;
     data.isActive = form.querySelector('[name=isActive]').checked;

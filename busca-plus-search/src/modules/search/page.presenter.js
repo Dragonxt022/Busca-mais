@@ -68,6 +68,56 @@ const stripLeadingDuplicateHeading = (text, title) => {
   return normalizedText;
 };
 
+const stripHtmlTags = (value) => String(value || '').replace(/<[^>]*>/g, ' ');
+
+const buildContentPreviewText = (text, maxLength = 850) => {
+  const normalized = stripHtmlTags(text)
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) {
+    return DEFAULT_EMPTY_CONTENT;
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  const sliced = normalized.slice(0, maxLength);
+  const lastSentence = Math.max(
+    sliced.lastIndexOf('. '),
+    sliced.lastIndexOf('! '),
+    sliced.lastIndexOf('? ')
+  );
+
+  if (lastSentence > 280) {
+    return `${sliced.slice(0, lastSentence + 1).trim()}...`;
+  }
+
+  return `${sliced.trim()}...`;
+};
+
+const getFirstImageUrl = (images) => {
+  if (!Array.isArray(images) || images.length === 0) {
+    return '';
+  }
+
+  const firstImage = images.find(Boolean);
+  if (!firstImage) {
+    return '';
+  }
+
+  if (typeof firstImage === 'string') {
+    return firstImage;
+  }
+
+  return firstImage.localPath
+    || firstImage.url
+    || firstImage.originalUrl
+    || firstImage.src
+    || '';
+};
+
 const formatContentHtml = (text) => {
   if (!text) {
     return `<p>${DEFAULT_EMPTY_CONTENT}</p>`;
@@ -175,6 +225,9 @@ const buildPageViewModel = ({
   const leadText = String(page?.summary || page?.description || readableContent || DEFAULT_EMPTY_CONTENT)
     .replace(/\s+/g, ' ')
     .trim();
+  const originalLabel = isCatalogDocument ? 'Ver documento original' : 'Ver materia original';
+  const sourceName = page?.sourceName || page?.domain || 'site da fonte';
+  const copyrightNotice = `Imagem e material original pertencem ao site da fonte: ${sourceName}.`;
 
   const documentMetaItems = [
     { label: 'Tipo', value: page?.documentType || '' },
@@ -195,23 +248,23 @@ const buildPageViewModel = ({
     leadExcerpt: leadText.length > 400
       ? `${leadText.slice(0, 400).trim()}...`
       : leadText,
-    featuredImage: page?.coverThumbnail
-      || page?.coverImage
+    featuredImage: page?.coverImage
+      || getFirstImageUrl(page?.images)
       || page?.featuredImage
-      || page?.thumbnailUrl
       || page?.screenshotUrl
       || page?.imageUrl
-      || (page?.images && page.images.length > 0 ? page.images[0] : null)
+      || page?.coverThumbnail
+      || page?.thumbnailUrl
       || '',
     featuredCaption: page?.coverAlt || page?.imageCaption || page?.thumbnailCaption || '',
     publishedDate: page?.publicationDate || page?.documentDate || '',
     snapshotDate: page?.crawledAt ? new Date(page.crawledAt).toLocaleString('pt-BR') : '',
     documentMetaItems,
+    contentPreviewHtml: `<p>${escapeHtml(buildContentPreviewText(readableContent))}</p>`,
+    originalLabel,
+    copyrightNotice,
     formattedContentHtml: formatContentHtml(readableContent),
-    aiPageEnabled: !aiFeatures
-      || aiFeatures.enabled !== false
-        && aiFeatures.features
-        && aiFeatures.features.pageSummary !== false,
+    aiPageEnabled: false,
   };
 };
 

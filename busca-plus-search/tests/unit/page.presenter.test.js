@@ -19,7 +19,8 @@ test('buildPageViewModel maps page data into a render-friendly payload', () => {
       documentDate: '2026-04-10',
       publicationDate: '2026-04-11',
       markdownContent: 'CAPITULO I\nDescricao da secao',
-      coverThumbnail: '/img/capa.jpg',
+      coverImage: '/img/capa-original.jpg',
+      coverThumbnail: '/img/capa-thumb.jpg',
       crawledAt: '2026-04-17T10:00:00.000Z',
     },
     query: 'licitacao',
@@ -36,11 +37,26 @@ test('buildPageViewModel maps page data into a render-friendly payload', () => {
   assert.equal(viewModel.isCatalogDocument, true);
   assert.equal(viewModel.openUrl, 'https://doc.example.com/arquivo.pdf');
   assert.equal(viewModel.sourceHref, 'https://fonte.example.com');
-  assert.equal(viewModel.featuredImage, '/img/capa.jpg');
-  assert.equal(viewModel.aiPageEnabled, true);
+  assert.equal(viewModel.featuredImage, '/img/capa-original.jpg');
+  assert.equal(viewModel.aiPageEnabled, false);
+  assert.match(viewModel.contentPreviewHtml, /Descricao da secao/);
+  assert.equal(viewModel.originalLabel, 'Ver documento original');
   assert.equal(viewModel.documentMetaItems.length, 5);
   assert.match(viewModel.formattedContentHtml, /document-section-title/);
   assert.match(viewModel.formattedContentHtml, /Descricao da secao/);
+});
+
+test('buildPageViewModel falls back to thumbnail only when original image is missing', () => {
+  const viewModel = buildPageViewModel({
+    page: {
+      id: 'doc-1',
+      title: 'Noticia',
+      coverThumbnail: '/img/capa-thumb.jpg',
+      markdownContent: 'Conteudo',
+    },
+  });
+
+  assert.equal(viewModel.featuredImage, '/img/capa-thumb.jpg');
 });
 
 test('buildPageViewModel disables AI action when feature flag is off', () => {

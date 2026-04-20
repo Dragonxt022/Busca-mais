@@ -6,6 +6,7 @@ const { sequelize } = require('./models');
 const { logger } = require('./libs/logger');
 const config = require('./config');
 const { ensurePlaywrightChromium } = require('./libs/playwright-utils');
+const { ensureDefaultAdmin } = require('./services/bootstrap-admin.service');
 
 const PORT = config.server.port;
 const DB_RETRY_ATTEMPTS = 12;
@@ -47,6 +48,11 @@ async function startServer() {
     if (config.server?.nodeEnv === 'development') {
       await sequelize.sync({ alter: true });
       logger.info('Database models synchronized');
+    }
+
+    const defaultAdmin = await ensureDefaultAdmin();
+    if (defaultAdmin) {
+      logger.info(`Admin user available: ${defaultAdmin.email}`);
     }
 
     // Start Express server

@@ -257,6 +257,11 @@
   <div class="sidebar-section">Configurações</div>
   <ul class="nav flex-column">
     <li class="nav-item">
+      <a class="nav-link <%= currentPage === 'users' ? 'active' : '' %>" href="/admin/users">
+        <i class="bi bi-people"></i> Usuarios
+      </a>
+    </li>
+    <li class="nav-item">
       <a class="nav-link <%= currentPage === 'sponsors' ? 'active' : '' %>" href="/admin/sponsors">
         <i class="bi bi-megaphone"></i> Patrocínios
       </a>
@@ -266,9 +271,23 @@
         <i class="bi bi-robot"></i> Ferramentas IA
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link <%= currentPage === 'email-settings' ? 'active' : '' %>" href="/admin/email-settings">
+        <i class="bi bi-envelope-gear"></i> E-mail
+      </a>
+    </li>
   </ul>
 
   <div class="sidebar-footer">
+    <% if (currentUser) { %>
+      <div class="small mb-2" style="color:#94a3b8;">
+        <div class="fw-semibold text-white"><%= currentUser.name %></div>
+        <div><%= currentUser.email %></div>
+      </div>
+      <button type="button" class="nav-link w-100 border-0 bg-transparent text-start mb-2" onclick="logoutAdmin()" style="color:#94a3b8;font-size:0.82rem;">
+        <i class="bi bi-box-arrow-right"></i> Sair
+      </button>
+    <% } %>
     <a class="nav-link d-flex align-items-center gap-2" href="http://localhost:3000" target="_blank" style="color:#64748b;font-size:0.82rem;">
       <i class="bi bi-box-arrow-up-right"></i> Ver Site
     </a>
@@ -312,6 +331,10 @@
     } catch (error) {
       alert('Erro: ' + (error.response?.data?.error || error.message));
     }
+  }
+  async function logoutAdmin() {
+    await axios.post('/api/auth/logout').catch(function () {});
+    window.location.href = '/admin/login';
   }
 </script>
 </body>

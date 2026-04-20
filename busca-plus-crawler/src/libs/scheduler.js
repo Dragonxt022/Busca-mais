@@ -69,9 +69,10 @@ class CrawlScheduler {
   }
 
   async createRepeatableJob(source, jobKey) {
+    const maxPages = source.max_pages || source.crawl_depth * 50;
     const pages = await Page.findAll({
       where: { source_id: source.id },
-      limit: 100,
+      limit: maxPages,
     });
 
     if (pages.length === 0) {
@@ -80,7 +81,9 @@ class CrawlScheduler {
         {
           sourceId: source.id,
           startUrl: source.base_url,
-          maxPages: source.crawl_depth * 50,
+          maxDepth: source.crawl_depth,
+          maxPages,
+          maxPaginationPages: source.config_json?.maxPaginationPages || Math.min(maxPages, 50),
         },
         {
           jobId: `discover-${source.id}`,

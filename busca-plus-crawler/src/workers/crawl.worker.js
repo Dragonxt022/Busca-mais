@@ -275,7 +275,7 @@ class CrawlWorker {
     this.discoverWorker = new Worker(
       QUEUE_NAMES.DISCOVER,
       async (job) => {
-        const { sourceId, startUrl, maxPages = 50, maxDepth = 1, jobId } = job.data;
+        const { sourceId, startUrl, maxPages = 50, maxDepth = 1, maxPaginationPages = 50, jobId } = job.data;
         logger.info(`Processing discover job ${job.id}: source ${sourceId}`);
 
         try {
@@ -294,6 +294,8 @@ class CrawlWorker {
           const links = await this.crawler.discoverLinks(startUrl, {
             maxLinks: maxPages,
             maxDepth,
+            maxPaginationPages: source.config_json?.paginationEnabled === false ? 0 : maxPaginationPages,
+            followInternalLinks: source.follow_internal_links !== false,
             sameDomain: true,
             delay: Number(source.delay_between_requests || 0),
           });

@@ -75,6 +75,7 @@ router.post('/trigger/:sourceId', async (req, res) => {
       startUrl: source.base_url,
       maxDepth: source.crawl_depth,
       maxPages: source.max_pages || source.crawl_depth * 50,
+      maxPaginationPages: source.config_json?.maxPaginationPages || Math.min(source.max_pages || source.crawl_depth * 50, 50),
     });
 
     res.json({ success: true, message: 'Crawl triggered' });

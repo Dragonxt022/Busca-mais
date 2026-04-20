@@ -45,7 +45,7 @@ const Source = sequelize.define('Source', {
   },
   auto_enable_images_after_pages: {
     type: DataTypes.INTEGER,
-    defaultValue: 10,
+    defaultValue: 0,
     comment: 'Auto-enable download_images after this many pages are indexed (0 = disabled)',
   },
   take_screenshots: {
@@ -113,15 +113,16 @@ Source.prototype.shouldDownloadImages = async function() {
   if (this.download_images) {
     return true;
   }
-  
-  if (this.auto_enable_images_after_pages <= 0) {
+
+  const autoEnableAfter = Number.parseInt(this.auto_enable_images_after_pages, 10) || 0;
+  if (autoEnableAfter <= 0) {
     return false;
   }
   
   const { Page } = require('../../models');
   const count = await Page.count({ where: { source_id: this.id } });
   
-  if (count >= this.auto_enable_images_after_pages) {
+  if (count >= autoEnableAfter) {
     await this.update({ download_images: true });
     return true;
   }

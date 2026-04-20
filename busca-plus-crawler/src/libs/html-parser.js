@@ -474,6 +474,60 @@ class HtmlParser {
   }
 
   /**
+   * Extracts pagination links such as "next", "proxima" and numbered pagination URLs.
+   * These links are used only to continue discovery through listing pages.
+   * @returns {string[]}
+   */
+  extractPaginationLinks() {
+    const links = new Set();
+    const baseDomain = extractDomain(this.baseUrl);
+    const selectors = [
+      'a[rel="next"]',
+      'link[rel="next"]',
+      '.pagination a[href]',
+      '.paginacao a[href]',
+      '.nav-links a[href]',
+      '.page-numbers a[href]',
+      'a.next[href]',
+      'a[aria-label*="Next" i]',
+      'a[aria-label*="Proxima" i]',
+      'a[aria-label*="Próxima" i]',
+    ];
+
+    selectors.forEach((selector) => {
+      this.$(selector).each((_, el) => {
+        const href = this.$(el).attr('href');
+        if (!href) return;
+
+        const fullUrl = this.resolveUrl(href);
+        const linkDomain = extractDomain(fullUrl);
+        if (linkDomain !== baseDomain) return;
+
+        const normalized = this.normalizeUrlForStorage(fullUrl);
+        if (normalized && this.isValidCrawlUrl(normalized)) {
+          links.add(normalized);
+        }
+      });
+    });
+
+    this.$('a[href]').each((_, el) => {
+      const label = this.cleanText(this.$(el).text()).toLowerCase();
+      if (!/(proxima|próxima|seguinte|next|mais|older|antigos)/i.test(label)) return;
+
+      const href = this.$(el).attr('href');
+      const fullUrl = this.resolveUrl(href);
+      if (extractDomain(fullUrl) !== baseDomain) return;
+
+      const normalized = this.normalizeUrlForStorage(fullUrl);
+      if (normalized && this.isValidCrawlUrl(normalized)) {
+        links.add(normalized);
+      }
+    });
+
+    return Array.from(links);
+  }
+
+  /**
    * Counts words in text
    * @param {string} text - Text to count words in
    * @returns {number}
@@ -684,6 +738,7 @@ class HtmlParser {
         image: this.extractImage(),
       },
       internalLinks: this.extractInternalLinks(),
+      paginationLinks: this.extractPaginationLinks(),
       images: this.extractImages(),
     };
   }

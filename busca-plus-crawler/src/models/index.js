@@ -4,6 +4,7 @@ const Page = require('../modules/pages/page.model');
 const CrawlJob = require('../modules/jobs/crawl-job.model');
 const SearchLog = require('../modules/search-logs/search-log.model');
 const Sponsor = require('./sponsor.model');
+const User = require('../modules/users/user.model');
 const CatalogSourceFactory = require('../modules/transparency/models/catalog-source.model');
 const CatalogRunFactory = require('../modules/transparency/models/catalog-run.model');
 const CatalogDocumentFactory = require('../modules/transparency/models/catalog-document.model');
@@ -37,6 +38,7 @@ module.exports = {
   CrawlJob,
   SearchLog,
   Sponsor,
+  User,
   CatalogSource,
   CatalogRun,
   CatalogDocument,

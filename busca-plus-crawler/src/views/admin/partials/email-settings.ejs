@@ -1,0 +1,135 @@
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-2">Configuracoes de e-mail</h1>
+    <p class="text-muted mb-0">Defina o SMTP usado para recuperacao de senha e futuras notificacoes.</p>
+  </div>
+  <span class="badge rounded-pill text-bg-secondary px-3 py-2" id="emailStatusBadge">Carregando...</span>
+</div>
+
+<form id="emailSettingsForm" class="d-grid gap-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="enabled" name="enabled">
+        <label class="form-check-label" for="enabled">Ativar envio de e-mail</label>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-7">
+          <label class="form-label" for="host">Servidor SMTP</label>
+          <input class="form-control" id="host" name="host" type="text" placeholder="smtp.exemplo.com">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="port">Porta</label>
+          <input class="form-control" id="port" name="port" type="number" min="1" max="65535">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="secure" name="secure">
+            <label class="form-check-label" for="secure">SSL</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="user">Usuario SMTP</label>
+          <input class="form-control" id="user" name="user" type="text" autocomplete="off">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="password">Senha SMTP</label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="new-password">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="fromName">Nome do remetente</label>
+          <input class="form-control" id="fromName" name="fromName" type="text">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="fromEmail">E-mail do remetente</label>
+          <input class="form-control" id="fromEmail" name="fromEmail" type="email">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="appUrl">URL publica da interface</label>
+          <input class="form-control" id="appUrl" name="appUrl" type="url" placeholder="http://localhost:3000">
+          <div class="form-text">Usada para montar o link de redefinicao de senha enviado ao usuario.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <button class="btn btn-primary" type="submit">Salvar configuracoes</button>
+    <div id="emailSettingsFeedback" class="small text-muted"></div>
+  </div>
+</form>
+
+<script>
+  (function emailSettingsAdmin() {
+    const form = document.getElementById('emailSettingsForm');
+    const feedback = document.getElementById('emailSettingsFeedback');
+    const statusBadge = document.getElementById('emailStatusBadge');
+
+    function setFeedback(message, isError) {
+      feedback.textContent = message || '';
+      feedback.className = isError ? 'small text-danger' : 'small text-muted';
+    }
+
+    function setStatus(settings) {
+      const configured = Boolean(settings && settings.configured);
+      statusBadge.className = configured
+        ? 'badge rounded-pill text-bg-success px-3 py-2'
+        : 'badge rounded-pill text-bg-secondary px-3 py-2';
+      statusBadge.textContent = configured ? 'SMTP configurado' : 'SMTP inativo';
+    }
+
+    function fillForm(settings) {
+      form.enabled.checked = Boolean(settings.enabled);
+      form.host.value = settings.host || '';
+      form.port.value = settings.port || 587;
+      form.secure.checked = Boolean(settings.secure);
+      form.user.value = settings.user || '';
+      form.password.value = settings.password || '';
+      form.fromName.value = settings.fromName || 'Busca+';
+      form.fromEmail.value = settings.fromEmail || '';
+      form.appUrl.value = settings.appUrl || 'http://localhost:3000';
+      setStatus(settings);
+    }
+
+    function serializeForm() {
+      return {
+        enabled: form.enabled.checked,
+        host: form.host.value,
+        port: form.port.value,
+        secure: form.secure.checked,
+        user: form.user.value,
+        password: form.password.value,
+        fromName: form.fromName.value,
+        fromEmail: form.fromEmail.value,
+        appUrl: form.appUrl.value,
+      };
+    }
+
+    async function loadSettings() {
+      setFeedback('Carregando configuracoes...', false);
+      try {
+        const response = await axios.get('/api/admin/email-settings');
+        fillForm(response.data);
+        setFeedback('', false);
+      } catch (error) {
+        setFeedback(error.response?.data?.error || error.message || 'Falha ao carregar configuracoes.', true);
+      }
+    }
+
+    form.addEventListener('submit', async function onSubmit(event) {
+      event.preventDefault();
+      setFeedback('Salvando...', false);
+
+      try {
+        const response = await axios.post('/api/admin/email-settings', serializeForm());
+        fillForm(response.data.settings);
+        setFeedback(response.data.message || 'Configuracoes salvas com sucesso.', false);
+      } catch (error) {
+        setFeedback(error.response?.data?.error || error.message || 'Falha ao salvar configuracoes.', true);
+      }
+    });
+
+    loadSettings();
+  })();
+</script>

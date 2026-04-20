@@ -54,6 +54,14 @@ const validateSource = (data) => {
   const rawMaxPages = data.max_pages ?? data.maxPages;
   const parsedMaxPages = rawMaxPages ? parseInt(rawMaxPages, 10) : null;
   const contentSelector = String(data.contentSelector ?? data.content_selector ?? data?.config_json?.contentSelector ?? '', '').trim();
+  const paginationEnabled = data.paginationEnabled !== undefined
+    ? data.paginationEnabled === true || data.paginationEnabled === 'true'
+    : (data?.config_json?.paginationEnabled !== false);
+  const rawMaxPaginationPages = data.maxPaginationPages
+    ?? data.max_pagination_pages
+    ?? data?.config_json?.maxPaginationPages
+    ?? 50;
+  const parsedMaxPaginationPages = parseInt(rawMaxPaginationPages, 10);
   const rawExcludeSelectors = data.excludeSelectors
     ?? data.exclude_selectors
     ?? data?.config_json?.excludeSelectors
@@ -73,6 +81,7 @@ const validateSource = (data) => {
     crawl_depth: parsedDepth !== undefined ? parsedDepth : 3,
     follow_internal_links: !!data.followInternalLinks || !!data.follow_internal_links,
     download_images: data.downloadImages === true || data.download_images === true,
+    auto_enable_images_after_pages: data.autoEnableImagesAfterPages || data.auto_enable_images_after_pages || 0,
     take_screenshots: data.takeScreenshots === true || data.take_screenshots === true,
     delay_between_requests: parsedDelay !== undefined && Number.isFinite(parsedDelay) ? parsedDelay : 1000,
     user_agent: data.userAgent || data.user_agent || null,
@@ -84,6 +93,10 @@ const validateSource = (data) => {
     configJson: {
       contentSelector: contentSelector || null,
       excludeSelectors,
+      paginationEnabled,
+      maxPaginationPages: Number.isFinite(parsedMaxPaginationPages)
+        ? Math.min(Math.max(parsedMaxPaginationPages, 0), 500)
+        : 50,
     },
   };
 };

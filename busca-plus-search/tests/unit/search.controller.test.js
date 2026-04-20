@@ -176,6 +176,10 @@ test('SearchController.summarizePage returns AI summary payload', async () => {
         summary: `Resumo de ${page.id} para ${options.query} usando ${options.feature}`,
       }),
     },
+    aiFeaturesLoader: async () => ({
+      enabled: true,
+      features: { pageSummary: true, searchReport: true },
+    }),
   });
   const res = createResponse();
 

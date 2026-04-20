@@ -125,9 +125,22 @@
             </div>
           </div>
 
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="form-check form-switch">
+                <input type="checkbox" class="form-check-input" name="paginationEnabled" id="paginationEnabled" value="true" <%= data.config_json?.paginationEnabled === false ? '' : 'checked' %>>
+                <label class="form-check-label" for="paginationEnabled">Seguir paginas paginadas</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="maxPaginationPages">Limite de paginas de listagem</label>
+              <input type="number" class="form-control" name="maxPaginationPages" id="maxPaginationPages" value="<%= data.config_json?.maxPaginationPages || 50 %>" min="0" max="500">
+            </div>
+          </div>
+
           <div class="mb-3">
             <div class="form-check form-switch">
-              <input type="checkbox" class="form-check-input" name="download_images" id="downloadImages" value="true" <%= data.download_images !== false ? 'checked' : '' %>>
+              <input type="checkbox" class="form-check-input" name="download_images" id="downloadImages" value="true" <%= data.download_images ? 'checked' : '' %>>
               <label class="form-check-label" for="downloadImages">Baixar Imagens</label>
             </div>
           </div>
@@ -330,6 +343,8 @@ document.getElementById('editSourceForm').addEventListener('submit', async (e) =
 
   data.isActive = form.querySelector('[name=is_active]').checked;
   data.followInternalLinks = form.querySelector('[name=follow_internal_links]').checked;
+  data.paginationEnabled = form.querySelector('[name=paginationEnabled]').checked;
+  data.maxPaginationPages = parseInt(form.querySelector('[name=maxPaginationPages]').value, 10) || 0;
   data.downloadImages = form.querySelector('[name=download_images]').checked;
   data.takeScreenshots = form.querySelector('[name=take_screenshots]').checked;
   data.crawlDepth = parseInt(data.crawl_depth, 10) || 3;

@@ -1,5 +1,6 @@
 (function authUi() {
   const STORAGE_KEY = 'buscaplus-user';
+  const TOKEN_KEY = 'buscaplus-auth-token';
   const SEARCH_COUNT_KEY = 'buscaplus-search-count';
   const PROMPT_DISMISSED_KEY = 'buscaplus-growth-dismissed';
   const PROMPT_DISMISSED_UNTIL_KEY = 'buscaplus-growth-dismissed-until';
@@ -19,19 +20,47 @@
   }
 
   function saveUser(user) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    document.dispatchEvent(new CustomEvent('buscaplus:user-updated', { detail: user }));
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    document.dispatchEvent(new CustomEvent('buscaplus:user-updated', { detail: user || null }));
+  }
+
+  function saveSession(data) {
+    if (data?.token) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+    }
+    saveUser(data.user);
   }
 
   function clearUser() {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_KEY);
     document.dispatchEvent(new CustomEvent('buscaplus:user-updated', { detail: null }));
   }
 
+  async function authRequest(path, options = {}) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(`/api/auth${path}`, {
+      credentials: 'same-origin',
+      ...options,
+      headers,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Falha na autenticacao.');
+    return data;
+  }
+
   function getAvatar(user) {
-    if (user?.photo) {
-      return user.photo;
-    }
+    if (user?.photo) return user.photo;
 
     const initials = String(user?.name || 'B')
       .trim()
@@ -61,29 +90,15 @@
     const avatars = document.querySelectorAll('[data-auth-avatar="true"]');
     const names = document.querySelectorAll('[data-auth-name="true"]');
 
-    loginButtons.forEach((button) => {
-      button.hidden = Boolean(user);
-    });
-
-    profileLinks.forEach((link) => {
-      link.hidden = !user;
-    });
-
-    avatars.forEach((avatar) => {
-      avatar.src = getAvatar(user);
-    });
-
-    names.forEach((node) => {
-      node.textContent = user?.name || 'Meu perfil';
-    });
+    loginButtons.forEach((button) => { button.hidden = Boolean(user); });
+    profileLinks.forEach((link) => { link.hidden = !user; });
+    avatars.forEach((avatar) => { avatar.src = getAvatar(user); });
+    names.forEach((node) => { node.textContent = user?.name || 'Meu perfil'; });
   }
 
   function setFeedback(message, isError) {
     const feedback = document.querySelector('[data-auth-feedback="true"]');
-    if (!feedback) {
-      return;
-    }
-
+    if (!feedback) return;
     feedback.hidden = !message;
     feedback.textContent = message || '';
     feedback.classList.toggle('is-error', Boolean(isError));
@@ -94,9 +109,7 @@
   const prompt = document.querySelector('[data-growth-prompt="true"]');
 
   function hideGrowthPrompt() {
-    if (prompt) {
-      prompt.hidden = true;
-    }
+    if (prompt) prompt.hidden = true;
   }
 
   function switchPanel(name) {
@@ -109,10 +122,7 @@
   }
 
   function openAuth(name) {
-    if (!overlay) {
-      return;
-    }
-
+    if (!overlay) return;
     hideGrowthPrompt();
     switchPanel(name || 'login');
     overlay.hidden = false;
@@ -121,10 +131,7 @@
   }
 
   function closeAuth() {
-    if (!overlay) {
-      return;
-    }
-
+    if (!overlay) return;
     overlay.hidden = true;
     overlay.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('auth-modal-open');
@@ -132,15 +139,11 @@
   }
 
   document.querySelectorAll('[data-auth-open]').forEach((button) => {
-    button.addEventListener('click', () => {
-      openAuth(button.dataset.authOpen || 'login');
-    });
+    button.addEventListener('click', () => openAuth(button.dataset.authOpen || 'login'));
   });
 
   document.querySelectorAll('[data-auth-switch]').forEach((button) => {
-    button.addEventListener('click', () => {
-      switchPanel(button.dataset.authSwitch);
-    });
+    button.addEventListener('click', () => switchPanel(button.dataset.authSwitch));
   });
 
   document.querySelectorAll('[data-auth-close="true"]').forEach((button) => {
@@ -149,20 +152,16 @@
 
   if (overlay) {
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay || e.target.classList.contains('auth-backdrop')) {
-        closeAuth();
-      }
+      if (e.target === overlay || e.target.classList.contains('auth-backdrop')) closeAuth();
     });
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay && !overlay.hidden) {
-      closeAuth();
-    }
+    if (e.key === 'Escape' && overlay && !overlay.hidden) closeAuth();
   });
 
   const registerForm = document.querySelector('[data-auth-form="register"]');
-  registerForm?.addEventListener('submit', (event) => {
+  registerForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(registerForm);
     const email = String(formData.get('email') || '').trim().toLowerCase();
@@ -174,67 +173,71 @@
       return;
     }
 
-    const user = {
-      name,
-      email,
-      password,
-      region: String(formData.get('region') || '').trim(),
-      phone: '',
-      interests: '',
-      smartSearch: true,
-      futureAlerts: false,
-      photo: '',
-    };
-
-    saveUser(user);
-    localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
-    setFeedback('Conta criada com sucesso. Seu perfil já está pronto para personalização.', false);
-    setTimeout(closeAuth, 600);
+    setFeedback('Criando conta...', false);
+    try {
+      const data = await authRequest('/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          region: String(formData.get('region') || '').trim(),
+        }),
+      });
+      saveSession(data);
+      localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
+      setFeedback('Conta criada com sucesso. Seu perfil ja esta pronto para personalizacao.', false);
+      setTimeout(closeAuth, 600);
+    } catch (error) {
+      setFeedback(error.message || 'Falha ao criar conta.', true);
+    }
   });
 
   const loginForm = document.querySelector('[data-auth-form="login"]');
-  loginForm?.addEventListener('submit', (event) => {
+  loginForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(loginForm);
-    const user = readUser();
     const email = String(formData.get('email') || '').trim().toLowerCase();
     const password = String(formData.get('password') || '');
 
-    if (!user || user.email !== email || user.password !== password) {
-      setFeedback('Não encontramos uma conta local com esse e-mail e senha.', true);
-      return;
+    setFeedback('Entrando...', false);
+    try {
+      const data = await authRequest('/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      saveSession(data);
+      localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
+      setFeedback('Login realizado com sucesso.', false);
+      setTimeout(closeAuth, 500);
+    } catch (error) {
+      setFeedback(error.message || 'E-mail ou senha invalidos.', true);
     }
-
-    saveUser(user);
-    localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
-    setFeedback('Login realizado com sucesso.', false);
-    setTimeout(closeAuth, 500);
   });
 
   const recoverForm = document.querySelector('[data-auth-form="recover"]');
-  recoverForm?.addEventListener('submit', (event) => {
+  recoverForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(recoverForm);
-    const user = readUser();
     const email = String(formData.get('email') || '').trim().toLowerCase();
-    const password = String(formData.get('password') || '');
 
-    if (!user || user.email !== email) {
-      setFeedback('Não existe uma conta local cadastrada com esse e-mail.', true);
-      return;
+    setFeedback('Gerando link de recuperacao...', false);
+    try {
+      const data = await authRequest('/password/forgot', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      const devLink = data.resetLink ? ` Link local: ${data.resetLink}` : '';
+      setFeedback((data.message || 'Se o e-mail existir, enviaremos as instrucoes.') + devLink, false);
+      if (!data.resetLink) setTimeout(() => switchPanel('login'), 1200);
+    } catch (error) {
+      setFeedback(error.message || 'Falha ao solicitar recuperacao.', true);
     }
-
-    saveUser({
-      ...user,
-      password,
-    });
-
-    setFeedback('Senha atualizada. Agora você já pode entrar.', false);
-    setTimeout(() => switchPanel('login'), 700);
   });
 
   document.querySelectorAll('[data-auth-logout="true"]').forEach((button) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
+      await authRequest('/logout', { method: 'POST', body: '{}' }).catch(() => {});
       clearUser();
       window.location.href = '/';
     });
@@ -249,9 +252,7 @@
     const showCount = Number(localStorage.getItem(PROMPT_SHOW_COUNT_KEY) || '0');
     const now = Date.now();
 
-    if (!prompt || !query || user) {
-      return;
-    }
+    if (!prompt || !query || user) return;
 
     const normalized = query.toLowerCase();
     const lastKey = 'buscaplus-last-query';
@@ -264,25 +265,11 @@
       localStorage.setItem(lastKey, normalized);
     }
 
-    if (count < PROMPT_MIN_SEARCHES) {
-      return;
-    }
-
-    if (dismissedPermanently || dismissedUntil > now) {
-      return;
-    }
-
-    if (showCount >= PROMPT_MAX_SHOWS) {
-      return;
-    }
-
-    if (sessionStorage.getItem(PROMPT_SESSION_SHOWN_KEY) === '1') {
-      return;
-    }
-
-    if (lastShownAt && now - lastShownAt < PROMPT_COOLDOWN_MS) {
-      return;
-    }
+    if (count < PROMPT_MIN_SEARCHES) return;
+    if (dismissedPermanently || dismissedUntil > now) return;
+    if (showCount >= PROMPT_MAX_SHOWS) return;
+    if (sessionStorage.getItem(PROMPT_SESSION_SHOWN_KEY) === '1') return;
+    if (lastShownAt && now - lastShownAt < PROMPT_COOLDOWN_MS) return;
 
     prompt.hidden = false;
     sessionStorage.setItem(PROMPT_SESSION_SHOWN_KEY, '1');
@@ -307,6 +294,19 @@
 
   document.addEventListener('buscaplus:user-updated', updateAuthUi);
 
+  async function refreshSession() {
+    try {
+      const data = await authRequest('/me');
+      if (data.user) saveUser(data.user);
+      else if (localStorage.getItem(TOKEN_KEY)) clearUser();
+    } catch {
+      if (localStorage.getItem(TOKEN_KEY)) clearUser();
+    } finally {
+      updateAuthUi();
+      trackSearchAndMaybePrompt();
+    }
+  }
+
   updateAuthUi();
-  trackSearchAndMaybePrompt();
+  refreshSession();
 })();

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Busca+ Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    .login-card {
+      width: min(420px, calc(100vw - 24px));
+      border: 0;
+      border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(15, 23, 42, 0.14);
+    }
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+      display: grid;
+      place-items: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="card login-card">
+    <div class="card-body p-4">
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="brand-icon"><i class="bi bi-search"></i></div>
+        <div>
+          <h1 class="h4 mb-0">Busca+ Admin</h1>
+          <p class="text-muted mb-0 small">Entre para gerenciar a plataforma</p>
+        </div>
+      </div>
+
+      <form id="adminLoginForm" class="d-grid gap-3">
+        <input type="hidden" name="nextUrl" value="<%= nextUrl %>">
+        <div>
+          <label class="form-label" for="email">E-mail</label>
+          <input class="form-control" id="email" name="email" type="email" required autocomplete="email">
+        </div>
+        <div>
+          <label class="form-label" for="password">Senha</label>
+          <input class="form-control" id="password" name="password" type="password" required autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary" type="submit">Entrar</button>
+        <div id="loginFeedback" class="small text-muted" role="status"></div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    (function adminLogin() {
+      const form = document.getElementById('adminLoginForm');
+      const feedback = document.getElementById('loginFeedback');
+
+      form.addEventListener('submit', async function onSubmit(event) {
+        event.preventDefault();
+        feedback.className = 'small text-muted';
+        feedback.textContent = 'Entrando...';
+
+        try {
+          const response = await axios.post('/api/auth/login', {
+            email: form.email.value,
+            password: form.password.value,
+          });
+
+          if (!response.data.user || response.data.user.role !== 'admin') {
+            await axios.post('/api/auth/logout').catch(function () {});
+            feedback.className = 'small text-danger';
+            feedback.textContent = 'Esse usuario nao tem acesso administrativo.';
+            return;
+          }
+
+          window.location.href = form.nextUrl.value || '/admin';
+        } catch (error) {
+          feedback.className = 'small text-danger';
+          feedback.textContent = error.response?.data?.error || error.message || 'Falha ao entrar.';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

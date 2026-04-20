@@ -10,6 +10,11 @@ class SourceService {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
   }
 
+  normalizeNullablePositiveInt(value) {
+    const parsed = parseInt(value, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
   /**
    * Create a new source
    */
@@ -23,13 +28,14 @@ class SourceService {
       crawl_depth: this.normalizePositiveInt(data.crawl_depth ?? data.crawlDepth, 3),
       follow_internal_links: data.follow_internal_links !== false,
       download_images: data.download_images === true,
+      auto_enable_images_after_pages: data.auto_enable_images_after_pages || data.autoEnableImagesAfterPages || 0,
       take_screenshots: data.take_screenshots === true,
       delay_between_requests: this.normalizePositiveInt(data.delay_between_requests ?? data.delayBetweenRequests, 1000),
       user_agent: data.user_agent || null,
       schedule: data.schedule || null,
       state: data.state || null,
       city: data.city || null,
-      max_pages: data.max_pages ? this.normalizePositiveInt(data.max_pages, null) : null,
+      max_pages: this.normalizeNullablePositiveInt(data.max_pages ?? data.maxPages),
       config_json: data.config || data.configJson || {},
       result_link_type: ['detail_page', 'direct_document'].includes(data.result_link_type || data.resultLinkType)
         ? (data.result_link_type || data.resultLinkType)
@@ -59,13 +65,20 @@ class SourceService {
     if (data.is_active !== undefined) updateData.is_active = data.is_active;
     if (data.status !== undefined) updateData.is_active = data.status !== 'inactive';
     if (data.crawl_depth !== undefined) updateData.crawl_depth = this.normalizePositiveInt(data.crawl_depth, source.crawl_depth || 3);
-    if (data.crawlDepth !== undefined || data.maxPages !== undefined) {
-      updateData.crawl_depth = this.normalizePositiveInt(data.crawlDepth ?? data.maxPages, source.crawl_depth || 3);
+    if (data.crawlDepth !== undefined) {
+      updateData.crawl_depth = this.normalizePositiveInt(data.crawlDepth, source.crawl_depth || 3);
     }
     if (data.follow_internal_links !== undefined) updateData.follow_internal_links = data.follow_internal_links;
     if (data.followInternalLinks !== undefined) updateData.follow_internal_links = data.followInternalLinks;
     if (data.download_images !== undefined) updateData.download_images = data.download_images;
     if (data.downloadImages !== undefined) updateData.download_images = data.downloadImages;
+    if (updateData.download_images === false) updateData.auto_enable_images_after_pages = 0;
+    if (data.auto_enable_images_after_pages !== undefined) {
+      updateData.auto_enable_images_after_pages = this.normalizePositiveInt(data.auto_enable_images_after_pages, 0) || 0;
+    }
+    if (data.autoEnableImagesAfterPages !== undefined) {
+      updateData.auto_enable_images_after_pages = this.normalizePositiveInt(data.autoEnableImagesAfterPages, 0) || 0;
+    }
     if (data.take_screenshots !== undefined) updateData.take_screenshots = data.take_screenshots;
     if (data.takeScreenshots !== undefined) updateData.take_screenshots = data.takeScreenshots;
     if (data.delay_between_requests !== undefined) updateData.delay_between_requests = this.normalizePositiveInt(data.delay_between_requests, source.delay_between_requests || 1000);
@@ -78,8 +91,8 @@ class SourceService {
     if (data.config !== undefined || data.configJson !== undefined) {
       updateData.config_json = data.config || data.configJson;
     }
-    if (data.max_pages !== undefined) {
-      updateData.max_pages = data.max_pages ? this.normalizePositiveInt(data.max_pages, null) : null;
+    if (data.max_pages !== undefined || data.maxPages !== undefined) {
+      updateData.max_pages = this.normalizeNullablePositiveInt(data.max_pages ?? data.maxPages);
     }
     const rlType = data.result_link_type || data.resultLinkType;
     if (rlType !== undefined) {
@@ -168,13 +181,17 @@ class SourceService {
     const discover = options.discover !== undefined ? options.discover : true;
     const maxDepth = this.normalizePositiveInt(options.maxDepth ?? options.crawlDepth ?? source.crawl_depth, source.crawl_depth || 1);
     const maxPages = this.normalizePositiveInt(options.maxPages ?? source.max_pages, maxDepth * 50);
+    const maxPaginationPages = this.normalizePositiveInt(
+      options.maxPaginationPages ?? source.config_json?.maxPaginationPages,
+      Math.min(maxPages, 50)
+    );
 
     // Create a crawl job
     const job = await CrawlJob.create({
       source_id: sourceId,
       type: discover ? 'discovery' : 'incremental',
       status: 'pending',
-      payload_json: { discover, maxPages, maxDepth },
+      payload_json: { discover, maxPages, maxDepth, maxPaginationPages },
       pages_found: 0,
       pages_crawled: 0,
       pages_saved: 0,
@@ -190,6 +207,7 @@ class SourceService {
           startUrl: source.base_url,
           maxDepth,
           maxPages,
+          maxPaginationPages,
           jobId: job.id,
         },
         { jobId: `discover-${source.id}-${Date.now()}` }

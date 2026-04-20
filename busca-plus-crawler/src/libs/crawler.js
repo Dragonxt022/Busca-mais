@@ -170,6 +170,7 @@ class Crawler {
         hashUrl: hashUrl(finalUrl),
         hashContent: hashUrl(cleanedContentText),
         internalLinks: extractLinks ? parsedData.internalLinks : [],
+        paginationLinks: extractLinks ? parsedData.paginationLinks : [],
         html,
       };
     } catch (error) {
@@ -507,14 +508,18 @@ class Crawler {
       maxLinks = 100,
       sameDomain = true,
       maxDepth = 1,
+      maxPaginationPages = 50,
+      followInternalLinks = true,
       delay = 0,
     } = options;
 
     const normalizedMaxDepth = Math.max(1, parseInt(maxDepth, 10) || 1);
     const normalizedMaxLinks = Math.max(1, parseInt(maxLinks, 10) || 100);
+    const normalizedMaxPaginationPages = Math.max(0, parseInt(maxPaginationPages, 10) || 0);
     const baseDomain = extractDomain(url);
     const queue = [{ url, depth: 0 }];
     const visited = new Set([url]);
+    const visitedPagination = new Set([url]);
     const discovered = new Set();
 
     while (queue.length > 0 && discovered.size < normalizedMaxLinks) {
@@ -529,6 +534,29 @@ class Crawler {
 
       if (sameDomain) {
         links = links.filter((link) => extractDomain(link) === baseDomain);
+      }
+
+      let paginationLinks = result.paginationLinks || [];
+      if (sameDomain) {
+        paginationLinks = paginationLinks.filter((link) => extractDomain(link) === baseDomain);
+      }
+
+      for (const paginationLink of paginationLinks) {
+        if (
+          visitedPagination.size >= normalizedMaxPaginationPages + 1
+          || visitedPagination.has(paginationLink)
+          || visited.has(paginationLink)
+        ) {
+          continue;
+        }
+
+        visitedPagination.add(paginationLink);
+        visited.add(paginationLink);
+        queue.push({ url: paginationLink, depth: current.depth, isPagination: true });
+      }
+
+      if (!followInternalLinks) {
+        links = [];
       }
 
       for (const link of links) {

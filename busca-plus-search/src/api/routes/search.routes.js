@@ -12,6 +12,35 @@ router.post('/api/page/:id/summary', searchController.summarizePage);
 router.get('/api/report', searchController.generateSearchReport);
 router.get('/page/:id', searchController.getPage);
 router.get('/api/suggestions', searchController.suggestions);
+router.get('/reset-password', (req, res) => {
+  res.render('reset-password', { token: req.query.token || '' });
+});
+
+router.all('/api/auth/{*path}', async (req, res) => {
+  try {
+    const targetPath = req.originalUrl.replace(/^\/api\/auth/, '') || '';
+    const response = await axios({
+      method: req.method,
+      url: `${config.crawler.apiUrl}/api/auth${targetPath}`,
+      data: req.body,
+      headers: {
+        cookie: req.headers.cookie || '',
+        authorization: req.headers.authorization || '',
+      },
+      validateStatus: () => true,
+      timeout: 10000,
+    });
+
+    const setCookie = response.headers['set-cookie'];
+    if (setCookie) {
+      res.setHeader('Set-Cookie', setCookie);
+    }
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    return res.status(502).json({ error: error.message || 'Falha ao comunicar com autenticacao.' });
+  }
+});
 
 router.post('/api/sponsors/:id/click', async (req, res) => {
   try {

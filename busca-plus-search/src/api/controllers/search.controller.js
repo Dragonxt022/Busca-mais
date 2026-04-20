@@ -20,19 +20,24 @@ async function getAiFeatures() {
   const now = Date.now();
   if (_aiCache && now - _aiCacheTime < AI_CACHE_TTL) return _aiCache;
   try {
-    const { data } = await axios.get(`${config.crawler.apiUrl}/api/admin/ai-settings`, { timeout: 2000 });
+    const { data } = await axios.get(`${config.crawler.apiUrl}/api/public/ai-settings`, { timeout: 2000 });
     _aiCache = data;
     _aiCacheTime = now;
     return data;
   } catch {
-    return { enabled: true, features: { pageSummary: true, searchReport: true } };
+    return { enabled: false, features: { pageSummary: false, searchReport: false } };
   }
 }
 
 class SearchController {
-  constructor({ searchService = new SearchService(), aiSummaryService = new AiSummaryService() } = {}) {
+  constructor({
+    searchService = new SearchService(),
+    aiSummaryService = new AiSummaryService(),
+    aiFeaturesLoader = getAiFeatures,
+  } = {}) {
     this.searchService = searchService;
     this.aiSummaryService = aiSummaryService;
+    this.aiFeaturesLoader = aiFeaturesLoader;
 
     this.index = this.index.bind(this);
     this.search = this.search.bind(this);
@@ -49,7 +54,7 @@ class SearchController {
       const tab = req.query.tab || SEARCH_TABS.ALL;
       const state = req.query.state || null;
       const city = req.query.city || null;
-      const aiFeatures = await getAiFeatures();
+      const aiFeatures = await this.aiFeaturesLoader();
 
       if (!searchData) {
         return res.render('index', { ...buildIndexViewModel({ tab }), aiFeatures, state, city });
@@ -113,7 +118,7 @@ class SearchController {
       const focus = req.query.focus || '';
       const [page, aiFeatures] = await Promise.all([
         this.searchService.getPageById(id),
-        getAiFeatures(),
+        this.aiFeaturesLoader(),
       ]);
 
       if (!page) {
@@ -167,6 +172,12 @@ class SearchController {
     try {
       const id = validatePageId(req.params.id);
       const query = req.body?.query || req.query?.q || '';
+      const aiFeatures = await this.aiFeaturesLoader();
+
+      if (!aiFeatures.enabled || !aiFeatures.features?.pageSummary) {
+        throw errorTypes.VALIDATION('Resumo por IA desativado nas configuracoes.');
+      }
+
       const page = await this.searchService.getPageById(id);
 
       if (!page) {
@@ -190,6 +201,11 @@ class SearchController {
   async generateSearchReport(req, res, next) {
     try {
       const searchData = validateSearch(req.query);
+      const aiFeatures = await this.aiFeaturesLoader();
+
+      if (!aiFeatures.enabled || !aiFeatures.features?.searchReport) {
+        throw errorTypes.VALIDATION('Relatorio por IA desativado nas configuracoes.');
+      }
 
       if (!searchData) {
         throw errorTypes.VALIDATION('Query invalida para geracao de relatorio');

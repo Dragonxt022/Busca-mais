@@ -3,7 +3,7 @@
   "provider": "ollama",
   "summaryMaxCharacters": 2000,
   "features": {
-    "pageSummary": true,
+    "pageSummary": false,
     "searchReport": false
   },
   "google": {
@@ -13,7 +13,7 @@
     "apiUrl": "https://generativelanguage.googleapis.com/v1beta/models"
   },
   "ollama": {
-    "enabled": true,
+    "enabled": false,
     "baseUrl": "http://127.0.0.1:11434",
     "model": "gemma4:e2b"
   }

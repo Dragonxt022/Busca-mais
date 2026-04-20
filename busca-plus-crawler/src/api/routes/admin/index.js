@@ -4,9 +4,11 @@ const models = require('../../../models');
 const { Op } = require('sequelize');
 const indexer = require('../../../libs/indexer');
 const aiSettingsService = require('../../../services/ai-settings.service');
+const emailSettingsService = require('../../../services/email-settings.service');
+const { hashPassword, sanitizeUser } = require('../../../services/auth.service');
 const { parseBoolean, parseCsv, parseNullableInt, serializeCsv } = require('../../../utils/csv');
 
-const { Page, Source, CrawlJob, SearchLog } = models;
+const { Page, Source, CrawlJob, SearchLog, User } = models;
 
 router.get('/', async (req, res) => {
   try {
@@ -173,6 +175,7 @@ router.get('/sources/export.csv', async (req, res) => {
       { key: 'schedule', getter: (row) => row.schedule || '' },
       { key: 'state', getter: (row) => row.state || '' },
       { key: 'city', getter: (row) => row.city || '' },
+      { key: 'max_pages', getter: (row) => row.max_pages || '' },
     ]);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -209,6 +212,7 @@ router.post('/sources/import', async (req, res) => {
         schedule: row.schedule || null,
         state: row.state || null,
         city: row.city || null,
+        max_pages: parseNullableInt(row.max_pages, null),
       };
 
       if (!payload.name || !payload.base_url) {
@@ -499,6 +503,153 @@ router.get('/ai-tools', async (req, res) => {
     });
   } catch (error) {
     res.status(500).send('Erro ao carregar configuracoes de IA: ' + error.message);
+  }
+});
+
+router.get('/email-settings', async (req, res) => {
+  try {
+    res.render('admin/layout', {
+      title: 'Configuracoes de E-mail',
+      currentPage: 'email-settings',
+      partial: 'email-settings',
+      data: emailSettingsService.getPublicSettings(),
+      stats: null,
+      pagination: null
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar configuracoes de e-mail: ' + error.message);
+  }
+});
+
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.findAll({ order: [['created_at', 'DESC']] });
+    const activeUsers = users.filter((user) => user.status === 'active').length;
+
+    res.render('admin/layout', {
+      title: 'Usuarios',
+      currentPage: 'users',
+      partial: 'users',
+      data: users.map((user) => sanitizeUser(user)),
+      stats: {
+        total: users.length,
+        active: activeUsers,
+        admins: users.filter((user) => user.role === 'admin').length,
+      },
+      pagination: null
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar usuarios: ' + error.message);
+  }
+});
+
+router.post('/users', async (req, res) => {
+  try {
+    const password = String(req.body.password || '');
+    const payload = {
+      name: String(req.body.name || '').trim(),
+      email: String(req.body.email || '').trim().toLowerCase(),
+      role: ['admin', 'user'].includes(req.body.role) ? req.body.role : 'user',
+      status: ['active', 'inactive'].includes(req.body.status) ? req.body.status : 'active',
+      phone: String(req.body.phone || '').trim() || null,
+      region: String(req.body.region || '').trim() || null,
+      interests: String(req.body.interests || '').trim() || null,
+      smart_search: req.body.smartSearch === true || req.body.smart_search === true || req.body.smartSearch === 'true',
+      future_alerts: req.body.futureAlerts === true || req.body.future_alerts === true || req.body.futureAlerts === 'true',
+      photo: String(req.body.photo || '').trim() || null,
+    };
+
+    if (!payload.name || !payload.email || password.length < 6) {
+      return res.status(400).json({ error: 'Nome, e-mail e senha com pelo menos 6 caracteres sao obrigatorios.' });
+    }
+
+    const existing = await User.findOne({ where: { email: payload.email } });
+    if (existing) {
+      return res.status(409).json({ error: 'Ja existe um usuario com esse e-mail.' });
+    }
+
+    const user = await User.create({
+      ...payload,
+      password_hash: hashPassword(password),
+    });
+
+    return res.status(201).json({ user: sanitizeUser(user) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario nao encontrado.' });
+    }
+
+    const payload = {
+      name: String(req.body.name || '').trim(),
+      email: String(req.body.email || '').trim().toLowerCase(),
+      role: ['admin', 'user'].includes(req.body.role) ? req.body.role : user.role,
+      status: ['active', 'inactive'].includes(req.body.status) ? req.body.status : user.status,
+      phone: String(req.body.phone || '').trim() || null,
+      region: String(req.body.region || '').trim() || null,
+      interests: String(req.body.interests || '').trim() || null,
+      smart_search: req.body.smartSearch === true || req.body.smart_search === true || req.body.smartSearch === 'true',
+      future_alerts: req.body.futureAlerts === true || req.body.future_alerts === true || req.body.futureAlerts === 'true',
+      photo: String(req.body.photo || '').trim() || null,
+    };
+
+    if (!payload.name || !payload.email) {
+      return res.status(400).json({ error: 'Nome e e-mail sao obrigatorios.' });
+    }
+
+    const existing = await User.findOne({
+      where: { email: payload.email, id: { [Op.ne]: user.id } },
+    });
+    if (existing) {
+      return res.status(409).json({ error: 'Ja existe outro usuario com esse e-mail.' });
+    }
+
+    const password = String(req.body.password || '');
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+      }
+      payload.password_hash = hashPassword(password);
+    }
+
+    const adminCount = await User.count({ where: { role: 'admin', status: 'active' } });
+    if (user.role === 'admin' && user.status === 'active' && (payload.role !== 'admin' || payload.status !== 'active') && adminCount <= 1) {
+      return res.status(400).json({ error: 'Nao e possivel remover o ultimo administrador ativo.' });
+    }
+
+    await user.update(payload);
+    return res.json({ user: sanitizeUser(user) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario nao encontrado.' });
+    }
+
+    if (req.user && req.user.id === user.id) {
+      return res.status(400).json({ error: 'Voce nao pode excluir sua propria conta por aqui.' });
+    }
+
+    const adminCount = await User.count({ where: { role: 'admin', status: 'active' } });
+    if (user.role === 'admin' && user.status === 'active' && adminCount <= 1) {
+      return res.status(400).json({ error: 'Nao e possivel excluir o ultimo administrador ativo.' });
+    }
+
+    await user.destroy();
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 
