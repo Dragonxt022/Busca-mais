@@ -474,7 +474,7 @@
       <div class="modal-body pt-2 pb-4 px-4">
         <p class="text-muted small mb-3">Selecione o que deseja exportar:</p>
 
-        <a href="/admin/catalog/export.csv?mode=sources" class="export-option text-decoration-none" data-bs-dismiss="modal">
+        <a href="/admin/catalog/export.csv?mode=sources" class="export-option text-decoration-none">
           <div class="export-icon bg-primary bg-opacity-10 text-primary">
             <i class="bi bi-collection"></i>
           </div>
@@ -484,7 +484,7 @@
           </div>
         </a>
 
-        <a href="/admin/catalog/export.csv?mode=documents" class="export-option text-decoration-none" data-bs-dismiss="modal">
+        <a href="/admin/catalog/export.csv?mode=documents" class="export-option text-decoration-none">
           <div class="export-icon bg-success bg-opacity-10 text-success">
             <i class="bi bi-file-earmark-text"></i>
           </div>
@@ -494,7 +494,7 @@
           </div>
         </a>
 
-        <a href="/admin/catalog/export.csv?mode=full" class="export-option text-decoration-none mb-0" data-bs-dismiss="modal">
+        <a href="/admin/catalog/export.csv?mode=full" class="export-option text-decoration-none mb-0">
           <div class="export-icon bg-info bg-opacity-10 text-info">
             <i class="bi bi-file-earmark-richtext"></i>
           </div>
@@ -522,16 +522,44 @@
           Use este import para restaurar documentos exportados com a opção <strong>"Lista de Documentos"</strong> ou <strong>"Documentos com Conteúdo"</strong>.
         </div>
         <div class="mb-3">
+          <label class="form-label fw-semibold">Modo de importação</label>
+          <div class="list-group">
+            <label class="list-group-item d-flex gap-3">
+              <input class="form-check-input flex-shrink-0" type="radio" name="documentImportMode" value="merge" checked>
+              <span>
+                <strong>Mesclar com o catálogo atual</strong>
+                <small class="d-block text-muted">Cria documentos novos e atualiza os que já existem pela fonte e pelo ID externo. Não remove nada.</small>
+              </span>
+            </label>
+            <label class="list-group-item d-flex gap-3 border-danger-subtle">
+              <input class="form-check-input flex-shrink-0" type="radio" name="documentImportMode" value="replace">
+              <span>
+                <strong class="text-danger">Substituir tudo pelo CSV</strong>
+                <small class="d-block text-muted">Remove fontes, documentos e histórico de execuções do catálogo antes de importar o arquivo.</small>
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="mb-3">
           <label class="form-label fw-semibold">Arquivo CSV</label>
           <input type="file" class="form-control" id="documentCsvFile" accept=".csv,text/csv">
+        </div>
+        <div class="mb-3 form-check">
+          <input class="form-check-input" type="checkbox" id="documentIndexAfterImport" checked>
+          <label class="form-check-label fw-semibold" for="documentIndexAfterImport">
+            Indexar conteúdo importado agora
+          </label>
+          <small class="d-block text-muted">
+            Quando o CSV tiver conteúdo extraído, envia direto para a busca sem baixar o documento no site original.
+          </small>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Ou cole o CSV aqui</label>
           <textarea class="form-control font-monospace" id="documentCsvText" rows="8"
-            placeholder="id,source_id,external_id,tipo,numero_ano,descricao,ementa,data_documento,data_publicacao,download_url,detalhe_url,extension,status,extracted_text"></textarea>
+            placeholder="id,source_id,source_name,source_slug,source_url,external_id,tipo,numero_ano,descricao,ementa,data_documento,data_publicacao,download_url,detalhe_url,extension,status,metadata_json,extracted_text"></textarea>
         </div>
         <div class="alert alert-secondary small mb-0">
-          Colunas: <code>source_id</code> e <code>external_id</code> são obrigatórios. Incluir <code>extracted_text</code> marca status como <em>indexed</em>.
+          Coluna obrigatoria: <code>external_id</code>. Para migrar entre maquinas, use arquivos exportados por aqui, pois eles incluem <code>source_slug</code> e <code>source_url</code>.
         </div>
       </div>
       <div class="modal-footer border-0">
@@ -557,11 +585,30 @@
           <input type="file" class="form-control" id="catalogCsvFile" accept=".csv,text/csv">
         </div>
         <div class="mb-3">
+          <label class="form-label fw-semibold">Modo de importação</label>
+          <div class="list-group">
+            <label class="list-group-item d-flex gap-3">
+              <input class="form-check-input flex-shrink-0" type="radio" name="catalogImportMode" value="merge" checked>
+              <span>
+                <strong>Mesclar com as fontes atuais</strong>
+                <small class="d-block text-muted">Cria fontes novas e atualiza fontes existentes por slug ou URL. Não remove documentos.</small>
+              </span>
+            </label>
+            <label class="list-group-item d-flex gap-3 border-danger-subtle">
+              <input class="form-check-input flex-shrink-0" type="radio" name="catalogImportMode" value="replace">
+              <span>
+                <strong class="text-danger">Substituir tudo pelo CSV</strong>
+                <small class="d-block text-muted">Remove todo o catálogo atual antes de importar as fontes do arquivo.</small>
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="mb-3">
           <label class="form-label">Ou cole o CSV</label>
-          <textarea class="form-control font-monospace" id="catalogCsvText" rows="10" placeholder="id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type"></textarea>
+          <textarea class="form-control font-monospace" id="catalogCsvText" rows="10" placeholder="id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type,max_documents,config_json"></textarea>
         </div>
         <div class="alert alert-info mb-0 small">
-          Colunas aceitas: <code>id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type</code>
+          Colunas aceitas: <code>id,name,slug,source_url,state,city,is_active,auto_update_enabled,auto_index_after_catalog,schedule_type,max_documents,config_json</code>
         </div>
       </div>
       <div class="modal-footer">
@@ -579,6 +626,8 @@ const documentImportModal = new bootstrap.Modal(document.getElementById('importD
 function openDocumentImportModal() {
   document.getElementById('documentCsvFile').value = '';
   document.getElementById('documentCsvText').value = '';
+  document.getElementById('documentIndexAfterImport').checked = true;
+  document.querySelector('input[name="documentImportMode"][value="merge"]').checked = true;
   documentImportModal.show();
 }
 
@@ -594,8 +643,16 @@ async function submitDocumentCsvImport() {
     alert('Selecione ou cole um CSV antes de importar.');
     return;
   }
+  const importMode = document.querySelector('input[name="documentImportMode"]:checked')?.value || 'merge';
+  if (importMode === 'replace' && !confirm('Isso vai apagar todas as fontes, documentos e historico do catalogo antes de importar este CSV. Continuar?')) {
+    return;
+  }
   try {
-    const response = await axios.post('/admin/catalog/import-documents', { csv_text: csvText });
+    const response = await axios.post('/admin/catalog/import-documents', {
+      csv_text: csvText,
+      import_mode: importMode,
+      index_after_import: document.getElementById('documentIndexAfterImport').checked,
+    });
     documentImportModal.hide();
     alert(`Importação concluída: ${response.data.total} processados (${response.data.created} criados, ${response.data.updated} atualizados).`);
     location.reload();
@@ -641,6 +698,7 @@ document.querySelector('#newSourceModal select[name="state"]').addEventListener(
 function openCatalogImportModal() {
   document.getElementById('catalogCsvFile').value = '';
   document.getElementById('catalogCsvText').value = '';
+  document.querySelector('input[name="catalogImportMode"][value="merge"]').checked = true;
   catalogImportModal.show();
 }
 
@@ -657,8 +715,16 @@ async function submitCatalogCsvImport() {
     return;
   }
 
+  const importMode = document.querySelector('input[name="catalogImportMode"]:checked')?.value || 'merge';
+  if (importMode === 'replace' && !confirm('Isso vai apagar todo o catalogo atual antes de importar este CSV. Continuar?')) {
+    return;
+  }
+
   try {
-    const response = await axios.post('/admin/catalog/import', { csv_text: csvText });
+    const response = await axios.post('/admin/catalog/import', {
+      csv_text: csvText,
+      import_mode: importMode,
+    });
     catalogImportModal.hide();
     alert(`Importacao concluida: ${response.data.total} processadas (${response.data.created} criadas, ${response.data.updated} atualizadas).`);
     location.reload();

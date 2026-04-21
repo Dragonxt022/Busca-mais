@@ -181,7 +181,11 @@
           name,
           email,
           password,
+          phone: String(formData.get('phone') || '').trim(),
           region: String(formData.get('region') || '').trim(),
+          interests: String(formData.get('interests') || '').trim(),
+          smartSearch: true,
+          futureAlerts: false,
         }),
       });
       saveSession(data);

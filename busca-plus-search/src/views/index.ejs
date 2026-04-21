@@ -9,8 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/search.css">
+  <link rel="stylesheet" href="/css/auth.css">
 </head>
-<body class="<%= !hasQuery ? 'home-landing' : '' %>">
+<body class="<%= !hasQuery ? 'home-landing' : '' %>" data-search-query="<%= query || '' %>">
   <% if (!hasQuery) { %>
     <div class="header">
       <a href="/" class="logo">Busca<span>+</span></a>
@@ -19,9 +20,12 @@
           <span class="material-icons">location_on</span>
           <span class="nav-location-label"><%= city ? city : (state ? state : 'Localização') %></span>
         </button>
-        <span class="material-icons">apps</span>
-        <span class="material-icons">notifications</span>
-        <div class="user-avatar">B</div>
+        <!-- <span class="material-icons">apps</span>
+        <span class="material-icons">notifications</span> -->
+        <button type="button" class="nav-auth-btn nav-auth-btn-compact" data-auth-open="login">Login</button>
+        <a href="/profile" class="nav-profile-link nav-profile-link-compact" data-auth-profile-link="true" hidden>
+          <img src="" alt="Foto de perfil" class="nav-profile-avatar" data-auth-avatar="true">
+        </a>
       </div>
     </div>
     <div class="empty-state">
@@ -67,7 +71,11 @@
         </button>
         <span class="material-icons">apps</span>
         <span class="material-icons">notifications</span>
-        <div class="user-avatar">B</div>
+        <button type="button" class="nav-auth-btn nav-auth-btn-compact" data-auth-open="login">Login</button>
+        <a href="/profile" class="nav-profile-link nav-profile-link-compact" data-auth-profile-link="true" hidden>
+          <img src="" alt="Foto de perfil" class="nav-profile-avatar" data-auth-avatar="true">
+          <span data-auth-name="true">Meu perfil</span>
+        </a>
       </div>
     </div>
 
@@ -468,8 +476,10 @@
   </div>
 
   <%- include('./partials/location-modal') %>
+  <%- include('./partials/auth-shell') %>
   <script src="/js/search-ui.js"></script>
   <script src="/js/location-ui.js"></script>
+  <script src="/js/auth-ui.js"></script>
   <script>
     document.querySelectorAll('a[data-sponsor-id]').forEach(function(link) {
       link.addEventListener('click', function() {

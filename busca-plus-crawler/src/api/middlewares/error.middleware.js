@@ -2,6 +2,13 @@ const { AppError, errorTypes } = require('../../utils/errors');
 const { logger } = require('../../libs/logger');
 
 const errorHandler = (err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      error: 'Arquivo ou dados enviados excedem o limite permitido para importacao.',
+    });
+  }
+
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,

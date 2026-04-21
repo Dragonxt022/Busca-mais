@@ -11,6 +11,9 @@ router.get('/api/images', searchController.searchImages);
 router.post('/api/page/:id/summary', searchController.summarizePage);
 router.get('/api/report', searchController.generateSearchReport);
 router.get('/page/:id', searchController.getPage);
+router.get('/profile', (req, res) => {
+  res.render('profile');
+});
 router.get('/api/suggestions', searchController.suggestions);
 router.get('/reset-password', (req, res) => {
   res.render('reset-password', { token: req.query.token || '' });

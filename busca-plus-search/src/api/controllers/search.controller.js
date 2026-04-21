@@ -55,6 +55,13 @@ class SearchController {
       const state = req.query.state || null;
       const city = req.query.city || null;
       const aiFeatures = await this.aiFeaturesLoader();
+      const headers = req.headers || {};
+      const requestContext = {
+        authorization: headers.authorization || '',
+        cookie: headers.cookie || '',
+        ip: req.ip || '',
+        userAgent: headers['user-agent'] || '',
+      };
 
       if (!searchData) {
         return res.render('index', { ...buildIndexViewModel({ tab }), aiFeatures, state, city });
@@ -63,7 +70,7 @@ class SearchController {
       const { query, page, sourceId } = searchData;
 
       if (tab === SEARCH_TABS.IMAGES) {
-        const results = await this.searchService.searchImages(query, page, sourceId, state, city);
+        const results = await this.searchService.searchImages(query, page, sourceId, state, city, requestContext);
 
         return res.render('index', {
           ...buildIndexViewModel({ page, query, results, sourceId, tab }),
@@ -75,7 +82,7 @@ class SearchController {
       }
 
       const [results, sponsors] = await Promise.all([
-        this.searchService.search(query, page, sourceId, state, city),
+        this.searchService.search(query, page, sourceId, state, city, requestContext),
         this.searchService.getActiveSponsors(state, city),
       ]);
 

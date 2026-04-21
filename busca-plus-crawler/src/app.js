@@ -12,6 +12,7 @@ const adminApiRoutes = require('./api/routes/admin/stats.routes');
 const aiSettingsApiRoutes = require('./api/routes/admin/ai-settings.routes');
 const emailSettingsApiRoutes = require('./api/routes/admin/email-settings.routes');
 const authRoutes = require('./api/routes/auth.routes');
+const searchLogRoutes = require('./api/routes/search-log.routes');
 const adminAuthRoutes = require('./api/routes/admin-auth.routes');
 const publicSettingsRoutes = require('./api/routes/public-settings.routes');
 const adminRoutes = require('./api/routes/admin/index');
@@ -24,6 +25,7 @@ const { errorHandler, notFoundHandler } = require('./api/middlewares/error.middl
 
 const app = express();
 app.locals.logger = logger;
+const BODY_LIMIT = process.env.ADMIN_BODY_LIMIT || '200mb';
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -36,8 +38,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
 // Liberar CORS para imagens
 app.use('/images', (req, res, next) => {
@@ -57,6 +59,7 @@ app.use('/api/pages', pageRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/search-logs', searchLogRoutes);
 app.use('/api/public', publicSettingsRoutes);
 
 app.use(attachUser);

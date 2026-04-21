@@ -7,6 +7,7 @@ const apiRoutes = require('./api/routes');
 const { errorHandler, imageProxyMiddleware, notFoundHandler } = require('./api/middlewares');
 
 const app = express();
+const BODY_LIMIT = '5mb';
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -27,8 +28,8 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/images', imageProxyMiddleware);

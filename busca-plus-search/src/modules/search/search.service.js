@@ -238,13 +238,13 @@ class SearchService {
     return `/page/${id}${suffix ? `?${suffix}` : ''}`;
   }
 
-  async search(query, page = 1, sourceId = null, state = null, city = null) {
+  async search(query, page = 1, sourceId = null, state = null, city = null, context = {}) {
     try {
       const result = await typesense.collections(this.collectionName)
         .documents()
         .search(this.buildSearchParams({ query, page, perPage: 10, sourceId, state, city }));
 
-      await this.logSearch(query, result.found, sourceId);
+      await this.logSearch(query, result.found, sourceId, 'web', { ...context, state, city });
 
       return {
         hits: result.hits.map((hit) => this.formatHit(hit, query)),
@@ -314,13 +314,13 @@ class SearchService {
     }
   }
 
-  async searchImages(query, page = 1, sourceId = null, state = null, city = null) {
+  async searchImages(query, page = 1, sourceId = null, state = null, city = null, context = {}) {
     try {
       const result = await typesense.collections(this.collectionName)
         .documents()
         .search(this.buildImageSearchParams({ query, page, sourceId, state, city }));
 
-      await this.logSearch(query, result.found, sourceId, 'images');
+      await this.logSearch(query, result.found, sourceId, 'images', { ...context, state, city });
 
       return {
         hits: result.hits.map((hit) => this.formatImageHit(hit)),
@@ -463,15 +463,27 @@ class SearchService {
     };
   }
 
-  async logSearch(query, resultsCount, sourceId = null, searchType = 'web') {
+  async logSearch(query, resultsCount, sourceId = null, searchType = 'web', context = {}) {
     try {
+      const headers = {};
+      if (context.authorization) headers.Authorization = context.authorization;
+      if (context.cookie) headers.Cookie = context.cookie;
+
       await axios.post(`${this.crawlerApiUrl}/api/search-logs`, {
         query,
         resultsCount,
         sourceId,
         searchType,
+        filters: {
+          sourceId,
+          state: context.state || null,
+          city: context.city || null,
+          type: searchType,
+        },
+        userAgent: context.userAgent || '',
+        ip: context.ip || '',
         timestamp: new Date(),
-      }).catch(() => {
+      }, { headers, timeout: 2000 }).catch(() => {
         // Silently fail if crawler API is not available.
       });
     } catch (error) {

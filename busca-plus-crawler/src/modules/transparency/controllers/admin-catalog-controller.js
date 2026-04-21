@@ -2,9 +2,141 @@ const { fn, col, Op } = require('sequelize');
 const { CatalogSource, CatalogRun, CatalogDocument, Page } = require('../../../models');
 const { CatalogService } = require('../services/catalog-service');
 const catalogIndexService = require('../services/catalog-index.service');
+const indexer = require('../../../libs/indexer');
 const { parseBoolean, parseCsv, serializeCsv } = require('../../../utils/csv');
 
 class AdminCatalogController {
+  static VALID_UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+  static VALID_SCHEDULE = ['manual', 'hourly', 'daily', 'weekly'];
+
+  static slugify(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  static parseImportMode(req) {
+    return req.body.import_mode === 'replace' || req.body.replace_existing === true || req.body.replace_existing === 'true'
+      ? 'replace'
+      : 'merge';
+  }
+
+  static shouldIndexAfterImport(req) {
+    return req.body.index_after_import === true || req.body.index_after_import === 'true' || req.body.index_after_import === 'on';
+  }
+
+  static hasFullImportContent(metadata = {}) {
+    return Boolean(metadata && (metadata.extracted_text || metadata.extracted_markdown));
+  }
+
+  static parseJsonCell(value, fallback = null) {
+    if (!value) return fallback;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+
+  static normalizeSourcePayload(row = {}) {
+    const name = String(row.name || row.source_name || '').trim();
+    const sourceUrl = String(row.source_url || '').trim();
+    const slug = String(row.slug || row.source_slug || AdminCatalogController.slugify(name || sourceUrl)).trim();
+    const state = String(row.state || row.source_state || '').toUpperCase().trim();
+    const schedule = String(row.schedule_type || '').trim();
+
+    return {
+      name,
+      slug,
+      source_url: sourceUrl,
+      state: AdminCatalogController.VALID_UF.includes(state) ? state : null,
+      city: row.city || row.source_city ? String(row.city || row.source_city).trim() : null,
+      is_active: parseBoolean(row.is_active ?? row.source_is_active, true),
+      auto_update_enabled: parseBoolean(row.auto_update_enabled, false),
+      auto_index_after_catalog: parseBoolean(row.auto_index_after_catalog, false),
+      schedule_type: AdminCatalogController.VALID_SCHEDULE.includes(schedule) ? schedule : 'manual',
+      max_documents: row.max_documents ? parseInt(row.max_documents, 10) || null : null,
+      config_json: AdminCatalogController.parseJsonCell(row.config_json, null),
+      last_status: 'idle',
+    };
+  }
+
+  static async findOrCreateSourceForImport(row, sourceCache) {
+    const cacheKey = [row.source_slug || row.slug, row.source_url, row.source_id, row.source_name || row.name]
+      .filter(Boolean)
+      .join('|');
+    if (cacheKey && sourceCache.has(cacheKey)) {
+      return sourceCache.get(cacheKey);
+    }
+
+    let source = null;
+    const slug = String(row.source_slug || row.slug || '').trim();
+    const sourceUrl = String(row.source_url || '').trim();
+
+    if (slug) {
+      source = await CatalogSource.findOne({ where: { slug } });
+    }
+    if (!source && sourceUrl) {
+      source = await CatalogSource.findOne({ where: { source_url: sourceUrl } });
+    }
+    if (!source && row.source_id) {
+      source = await CatalogSource.findByPk(row.source_id);
+    }
+
+    const payload = AdminCatalogController.normalizeSourcePayload(row);
+    if (!payload.name && !payload.source_url) {
+      return source;
+    }
+
+    if (!payload.name) payload.name = payload.slug || payload.source_url;
+    if (!payload.slug) payload.slug = AdminCatalogController.slugify(payload.name || payload.source_url);
+    if (!payload.source_url) payload.source_url = sourceUrl || `import://${payload.slug}`;
+
+    if (source) {
+      await source.update(payload);
+    } else {
+      source = await CatalogSource.create(payload);
+    }
+
+    if (cacheKey) sourceCache.set(cacheKey, source);
+    return source;
+  }
+
+  static async refreshSourceTotals() {
+    const counts = await CatalogDocument.findAll({
+      attributes: ['source_id', [fn('COUNT', col('id')), 'count']],
+      group: ['source_id'],
+      raw: true,
+    });
+    const countMap = counts.reduce((acc, item) => {
+      acc[item.source_id] = Number(item.count || 0);
+      return acc;
+    }, {});
+    const sources = await CatalogSource.findAll({ attributes: ['id'] });
+    await Promise.all(sources.map((source) => source.update({
+      total_documents: countMap[source.id] || 0,
+      last_status: 'idle',
+    })));
+  }
+
+  static async clearCatalogData({ includeSources = false } = {}) {
+    await CatalogDocument.destroy({ where: {} });
+    await CatalogRun.destroy({ where: {} });
+    if (includeSources) {
+      await CatalogSource.destroy({ where: {} });
+      return;
+    }
+    await CatalogSource.update({
+      last_status: 'idle',
+      total_documents: 0,
+      last_run_at: null,
+    }, { where: {} });
+  }
+
   static buildStatusCountMap(items = []) {
     return items.reduce((acc, item) => {
       const sourceId = item.source_id || 'global';
@@ -118,14 +250,13 @@ class AdminCatalogController {
 
   static async createSource(req, res, next) {
     try {
-      const slug = req.body.slug || (req.body.name ? req.body.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : null);
-      const VALID_UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+      const slug = req.body.slug || AdminCatalogController.slugify(req.body.name);
       const uf = String(req.body.state || '').toUpperCase().trim();
       await CatalogSource.create({
         name: req.body.name,
         slug,
         source_url: req.body.source_url,
-        state: VALID_UF.includes(uf) ? uf : null,
+        state: AdminCatalogController.VALID_UF.includes(uf) ? uf : null,
         city: req.body.city ? String(req.body.city).trim() : null,
         is_active: req.body.is_active === 'on',
         auto_update_enabled: req.body.auto_update_enabled === 'on',
@@ -146,13 +277,12 @@ class AdminCatalogController {
       const source = await CatalogSource.findByPk(req.params.id);
       if (!source) return res.status(404).json({ error: 'Fonte nao encontrada' });
 
-      const VALID_UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
       const uf = String(req.body.state || '').toUpperCase().trim();
 
       await source.update({
         name: req.body.name || source.name,
         source_url: req.body.source_url || source.source_url,
-        state: VALID_UF.includes(uf) ? uf : null,
+        state: AdminCatalogController.VALID_UF.includes(uf) ? uf : null,
         city: req.body.city ? String(req.body.city).trim() : null,
         is_active: req.body.is_active === 'on' || req.body.is_active === 'true' || req.body.is_active === true,
         auto_update_enabled: req.body.auto_update_enabled === 'on' || req.body.auto_update_enabled === 'true',
@@ -183,6 +313,10 @@ class AdminCatalogController {
           { key: 'id', getter: (row) => row.id },
           { key: 'source_id', getter: (row) => row.source_id },
           { key: 'source_name', getter: (row) => (row.source && row.source.name) || '' },
+          { key: 'source_slug', getter: (row) => (row.source && row.source.slug) || '' },
+          { key: 'source_url', getter: (row) => (row.source && row.source.source_url) || '' },
+          { key: 'source_state', getter: (row) => (row.source && row.source.state) || '' },
+          { key: 'source_city', getter: (row) => (row.source && row.source.city) || '' },
           { key: 'external_id', getter: (row) => row.external_id || '' },
           { key: 'tipo', getter: (row) => row.tipo || '' },
           { key: 'numero_ano', getter: (row) => row.numero_ano || '' },
@@ -192,18 +326,37 @@ class AdminCatalogController {
           { key: 'data_publicacao', getter: (row) => row.data_publicacao || '' },
           { key: 'download_url', getter: (row) => row.download_url || '' },
           { key: 'detalhe_url', getter: (row) => row.detalhe_url || '' },
+          { key: 'pagina_origem', getter: (row) => row.pagina_origem || '' },
+          { key: 'row_hash', getter: (row) => row.row_hash || '' },
           { key: 'extension', getter: (row) => row.extension || '' },
           { key: 'status', getter: (row) => row.status || '' },
+          { key: 'metadata_json', getter: (row) => JSON.stringify(row.metadata_json || {}) },
         ];
 
         if (mode === 'full') {
-          columns.push({
-            key: 'extracted_text',
-            getter: (row) => {
-              const meta = row.metadata_json || {};
-              return meta.extracted_text || '';
+          columns.push(
+            {
+              key: 'extracted_text',
+              getter: (row) => {
+                const meta = row.metadata_json || {};
+                return meta.extracted_text || '';
+              },
             },
-          });
+            {
+              key: 'raw_text',
+              getter: (row) => {
+                const meta = row.metadata_json || {};
+                return meta.raw_text || '';
+              },
+            },
+            {
+              key: 'extracted_markdown',
+              getter: (row) => {
+                const meta = row.metadata_json || {};
+                return meta.extracted_markdown || '';
+              },
+            },
+          );
         }
 
         const rows = documents.map((d) => d.get({ plain: true }));
@@ -228,6 +381,7 @@ class AdminCatalogController {
         { key: 'auto_index_after_catalog', getter: (row) => row.auto_index_after_catalog },
         { key: 'schedule_type', getter: (row) => row.schedule_type || 'manual' },
         { key: 'max_documents', getter: (row) => row.max_documents ?? '' },
+        { key: 'config_json', getter: (row) => JSON.stringify(row.config_json || {}) },
       ]);
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -245,15 +399,50 @@ class AdminCatalogController {
         return res.status(400).json({ error: 'CSV vazio ou invalido' });
       }
 
+      const importMode = AdminCatalogController.parseImportMode(req);
+      if (importMode === 'replace') {
+        await AdminCatalogController.clearCatalogData({ includeSources: true });
+      }
+
       let created = 0;
       let updated = 0;
+      let skipped = 0;
+      let indexed = 0;
+      let indexFailed = 0;
+      const indexAfterImport = AdminCatalogController.shouldIndexAfterImport(req);
+      const documentsToIndex = [];
+      const sourceCache = new Map();
 
       for (const row of rows) {
-        if (!row.source_id || !row.external_id) continue;
+        if (!row.external_id) {
+          skipped += 1;
+          continue;
+        }
+
+        const source = await AdminCatalogController.findOrCreateSourceForImport(row, sourceCache);
+        if (!source) {
+          skipped += 1;
+          continue;
+        }
+
+        const importedMeta = AdminCatalogController.parseJsonCell(row.metadata_json, {});
+        const metadata = importedMeta && typeof importedMeta === 'object' && !Array.isArray(importedMeta)
+          ? { ...importedMeta }
+          : {};
+
+        if (row.extracted_text) metadata.extracted_text = row.extracted_text;
+        if (row.raw_text) metadata.raw_text = row.raw_text;
+        if (row.extracted_markdown) metadata.extracted_markdown = row.extracted_markdown;
+        if (AdminCatalogController.hasFullImportContent(metadata)) {
+          metadata.imported_from_csv = true;
+          metadata.imported_has_full_content = true;
+          metadata.last_extraction_error = null;
+        }
 
         const payload = {
-          source_id: row.source_id,
+          source_id: source.id,
           external_id: row.external_id,
+          source_name: row.source_name || source.name || null,
           tipo: row.tipo || null,
           numero_ano: row.numero_ano || null,
           descricao: row.descricao || null,
@@ -262,30 +451,80 @@ class AdminCatalogController {
           data_publicacao: row.data_publicacao || null,
           download_url: row.download_url || null,
           detalhe_url: row.detalhe_url || null,
+          pagina_origem: row.pagina_origem ? parseInt(row.pagina_origem, 10) || null : null,
+          row_hash: row.row_hash || null,
           extension: row.extension || null,
           status: ['indexed', 'pending', 'error'].includes(row.status) ? row.status : 'pending',
+          metadata_json: Object.keys(metadata).length > 0 ? metadata : null,
         };
 
-        const existing = row.id
-          ? await CatalogDocument.findByPk(row.id)
-          : await CatalogDocument.findOne({ where: { source_id: payload.source_id, external_id: payload.external_id } });
-
-        if (row.extracted_text) {
-          const existingMeta = (existing && existing.metadata_json) ? existing.metadata_json : {};
-          payload.metadata_json = { ...existingMeta, extracted_text: row.extracted_text };
+        if (payload.metadata_json?.extracted_text || payload.metadata_json?.raw_text || payload.metadata_json?.extracted_markdown) {
           if (payload.status === 'pending') payload.status = 'indexed';
         }
 
+        const existing = await CatalogDocument.findOne({
+          where: { source_id: payload.source_id, external_id: payload.external_id },
+        });
+
         if (existing) {
+          if (payload.metadata_json && existing.metadata_json) {
+            payload.metadata_json = { ...existing.metadata_json, ...payload.metadata_json };
+          }
           await existing.update(payload);
+          if (indexAfterImport && AdminCatalogController.hasFullImportContent(payload.metadata_json)) {
+            documentsToIndex.push(existing.id);
+          }
           updated += 1;
         } else {
-          await CatalogDocument.create(payload);
+          const document = await CatalogDocument.create(payload);
+          if (indexAfterImport && AdminCatalogController.hasFullImportContent(payload.metadata_json)) {
+            documentsToIndex.push(document.id);
+          }
           created += 1;
         }
       }
 
-      return res.json({ created, updated, total: created + updated });
+      await AdminCatalogController.refreshSourceTotals();
+
+      if (indexAfterImport && documentsToIndex.length > 0) {
+        for (const documentId of documentsToIndex) {
+          const document = await CatalogDocument.findByPk(documentId, {
+            include: [{ model: CatalogSource, as: 'source' }],
+          });
+          if (!document) continue;
+          const ok = await indexer.indexCatalogDocument(document);
+          if (ok) {
+            indexed += 1;
+            await document.update({
+              status: 'indexed',
+              metadata_json: {
+                ...(document.metadata_json || {}),
+                indexed_at: new Date().toISOString(),
+                last_index_error: null,
+              },
+            });
+          } else {
+            indexFailed += 1;
+            await document.update({
+              status: 'error',
+              metadata_json: {
+                ...(document.metadata_json || {}),
+                last_index_error: 'Falha ao indexar documento importado.',
+              },
+            });
+          }
+        }
+      }
+
+      return res.json({
+        created,
+        updated,
+        skipped,
+        indexed,
+        indexFailed,
+        mode: importMode,
+        total: created + updated,
+      });
     } catch (error) {
       return next(error);
     }
@@ -298,37 +537,26 @@ class AdminCatalogController {
         return res.status(400).json({ error: 'CSV vazio ou invalido' });
       }
 
-      const VALID_UF = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-      const VALID_SCHEDULE = ['manual', 'hourly', 'daily', 'weekly'];
+      const importMode = AdminCatalogController.parseImportMode(req);
+      if (importMode === 'replace') {
+        await AdminCatalogController.clearCatalogData({ includeSources: true });
+      }
+
       let created = 0;
       let updated = 0;
+      let skipped = 0;
 
       for (const row of rows) {
-        const slug = row.slug || (row.name
-          ? row.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-          : null);
-        const state = String(row.state || '').toUpperCase().trim();
-        const payload = {
-          name: row.name,
-          slug,
-          source_url: row.source_url,
-          state: VALID_UF.includes(state) ? state : null,
-          city: row.city ? String(row.city).trim() : null,
-          is_active: parseBoolean(row.is_active, true),
-          auto_update_enabled: parseBoolean(row.auto_update_enabled, false),
-          auto_index_after_catalog: parseBoolean(row.auto_index_after_catalog, false),
-          schedule_type: VALID_SCHEDULE.includes(String(row.schedule_type || '').trim()) ? String(row.schedule_type).trim() : 'manual',
-          max_documents: row.max_documents ? parseInt(row.max_documents, 10) || null : null,
-          last_status: 'idle',
-        };
+        const payload = AdminCatalogController.normalizeSourcePayload(row);
 
         if (!payload.name || !payload.slug || !payload.source_url) {
+          skipped += 1;
           continue;
         }
 
-        const existing = row.id
-          ? await CatalogSource.findByPk(row.id)
-          : await CatalogSource.findOne({ where: { [Op.or]: [{ slug: payload.slug }, { source_url: payload.source_url }] } });
+        const existing = await CatalogSource.findOne({
+          where: { [Op.or]: [{ slug: payload.slug }, { source_url: payload.source_url }] },
+        });
 
         if (existing) {
           await existing.update(payload);
@@ -339,7 +567,15 @@ class AdminCatalogController {
         }
       }
 
-      return res.json({ created, updated, total: created + updated });
+      await AdminCatalogController.refreshSourceTotals();
+
+      return res.json({
+        created,
+        updated,
+        skipped,
+        mode: importMode,
+        total: created + updated,
+      });
     } catch (error) {
       return next(error);
     }
@@ -469,18 +705,7 @@ class AdminCatalogController {
 
   static async resetAll(req, res, next) {
     try {
-      await CatalogDocument.destroy({ where: {} });
-      await CatalogRun.destroy({ where: {} });
-      await CatalogSource.update(
-        {
-          last_status: 'idle',
-          total_documents: 0,
-          last_run_at: null,
-        },
-        {
-          where: {},
-        }
-      );
+      await AdminCatalogController.clearCatalogData({ includeSources: false });
 
       return res.redirect('/admin/catalog?msg=reset_done');
     } catch (error) {

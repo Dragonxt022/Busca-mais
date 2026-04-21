@@ -4,6 +4,22 @@ const { logger } = require('../../libs/logger');
 const isApiRequest = (req) => String(req.originalUrl || req.url || '').startsWith('/api/');
 
 const errorHandler = (err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    const message = 'Arquivo ou dados enviados excedem o limite permitido de 5MB.';
+
+    if (isApiRequest(req)) {
+      return res.status(413).json({
+        error: message,
+        status: 413,
+      });
+    }
+
+    return res.status(413).render('error', {
+      message,
+      error: { status: 413 },
+    });
+  }
+
   if (err instanceof AppError) {
     if (isApiRequest(req)) {
       return res.status(err.statusCode).json({

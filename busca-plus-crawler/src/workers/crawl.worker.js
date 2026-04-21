@@ -164,8 +164,11 @@ class CrawlWorker {
             }
 
             const currentMetadata = catalogDocument.metadata_json || {};
+            const hasImportedOrExtractedContent = Boolean(
+              currentMetadata.extracted_text || currentMetadata.extracted_markdown
+            );
 
-            if (catalogDocument.download_url) {
+            if (catalogDocument.download_url && !hasImportedOrExtractedContent) {
               try {
                 const extractedContent = await catalogDocumentContentService.extractFromDocumentUrl(catalogDocument.download_url);
 
