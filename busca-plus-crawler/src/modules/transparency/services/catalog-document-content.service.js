@@ -4,9 +4,9 @@ const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
+const { pathToFileURL } = require('url');
 const mammoth = require('mammoth');
 const pdfParseModule = require('pdf-parse');
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
 const { createCanvas } = require('@napi-rs/canvas');
 const Tesseract = require('tesseract.js');
 const XLSX = require('xlsx');
@@ -38,6 +38,56 @@ class CatalogDocumentContentService {
     this.execFileAsync = execFileAsync;
     this.ocrMaxPages = 15;
     this.ocrMinTextRatio = 0.45;
+    this.pdfJsLibPromise = null;
+  }
+
+  async loadPdfJsLib() {
+    if (this.pdfJsLibPromise) {
+      return this.pdfJsLibPromise;
+    }
+
+    this.pdfJsLibPromise = (async () => {
+      const requireCandidates = [
+        'pdfjs-dist/legacy/build/pdf',
+        'pdfjs-dist/legacy/build/pdf.js',
+      ];
+
+      for (const candidate of requireCandidates) {
+        try {
+          return require(candidate);
+        } catch (error) {
+          if (error.code !== 'MODULE_NOT_FOUND') {
+            throw error;
+          }
+        }
+      }
+
+      const importCandidates = [
+        path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.mjs'),
+        path.join(process.cwd(), 'node_modules/pdf-parse/node_modules/pdfjs-dist/legacy/build/pdf.mjs'),
+      ];
+
+      for (const candidate of importCandidates) {
+        try {
+          const moduleUrl = pathToFileURL(candidate).href;
+          const imported = await import(moduleUrl);
+          return imported.default || imported;
+        } catch (error) {
+          if (error.code !== 'ERR_MODULE_NOT_FOUND' && error.code !== 'MODULE_NOT_FOUND') {
+            throw error;
+          }
+        }
+      }
+
+      throw new Error('Modulo pdfjs-dist nao encontrado para OCR de PDF');
+    })();
+
+    try {
+      return await this.pdfJsLibPromise;
+    } catch (error) {
+      this.pdfJsLibPromise = null;
+      throw error;
+    }
   }
 
   isOleCompoundDocument(buffer) {
@@ -206,6 +256,7 @@ class CatalogDocumentContentService {
   }
 
   async extractPdfViaOcr(buffer) {
+    const pdfjsLib = await this.loadPdfJsLib();
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buffer),
       useSystemFonts: true,
