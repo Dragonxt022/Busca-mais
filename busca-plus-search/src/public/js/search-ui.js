@@ -58,6 +58,150 @@
   });
 }());
 
+// Autocomplete com termos mais pesquisados (últimos 7 dias)
+(function searchAutocomplete() {
+  var DEBOUNCE_MS = 180;
+
+  function escHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = String(s || '');
+    return d.innerHTML;
+  }
+
+  function initAutoComplete(container) {
+    var input = container.querySelector('input[name="q"]');
+    var dropdown = container.querySelector('.ac-dropdown');
+    var list = dropdown ? dropdown.querySelector('.ac-list') : null;
+    if (!input || !dropdown || !list) return;
+
+    var timer = null;
+    var activeIdx = -1;
+    var items = [];
+
+    function getItems() {
+      return Array.from(list.querySelectorAll('.ac-item'));
+    }
+
+    function highlight(idx) {
+      var elems = getItems();
+      var clamped = Math.max(-1, Math.min(idx, elems.length - 1));
+      elems.forEach(function (el, i) { el.classList.toggle('ac-active', i === clamped); });
+      activeIdx = clamped;
+    }
+
+    function render(suggestions) {
+      items = suggestions;
+      activeIdx = -1;
+
+      if (!suggestions.length) {
+        dropdown.hidden = true;
+        list.innerHTML = '';
+        return;
+      }
+
+      var popularItems = suggestions.filter(function (s) { return s.type === 'popular'; });
+      var titleItems = suggestions.filter(function (s) { return s.type !== 'popular'; });
+      var parts = [];
+
+      if (popularItems.length) {
+        parts.push('<li class="ac-section-label"><span class="material-icons" style="font-size:13px;vertical-align:middle;margin-right:3px">trending_up</span>Mais pesquisados — últimos 7 dias</li>');
+        popularItems.forEach(function (s, i) {
+          var countLabel = s.count > 1 ? '<span class="ac-count">' + s.count + 'x</span>' : '';
+          parts.push(
+            '<li class="ac-item" role="option" data-idx="' + i + '">' +
+            '<span class="material-icons ac-icon ac-icon-popular">local_fire_department</span>' +
+            '<span class="ac-text">' + escHtml(s.text) + '</span>' +
+            countLabel +
+            '</li>'
+          );
+        });
+      }
+
+      if (titleItems.length) {
+        if (popularItems.length) parts.push('<li class="ac-divider" aria-hidden="true"></li>');
+        titleItems.forEach(function (s, i) {
+          var realIdx = popularItems.length + i;
+          parts.push(
+            '<li class="ac-item" role="option" data-idx="' + realIdx + '">' +
+            '<span class="material-icons ac-icon">search</span>' +
+            '<span class="ac-text">' + escHtml(s.text) + '</span>' +
+            '</li>'
+          );
+        });
+      }
+
+      list.innerHTML = parts.join('');
+      dropdown.hidden = false;
+    }
+
+    function fetchSuggestions(q) {
+      return fetch('/api/suggestions?' + new URLSearchParams({ q: q || '' }), {
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; });
+    }
+
+    function selectItem(idx) {
+      var item = items[idx];
+      if (!item) return;
+      input.value = item.text;
+      dropdown.hidden = true;
+      var form = input.closest('form');
+      if (form) form.submit();
+    }
+
+    function triggerFetch() {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        fetchSuggestions(input.value.trim()).then(render);
+      }, DEBOUNCE_MS);
+    }
+
+    input.addEventListener('focus', function () {
+      clearTimeout(timer);
+      fetchSuggestions(input.value.trim()).then(render);
+    });
+
+    input.addEventListener('input', triggerFetch);
+
+    input.addEventListener('keydown', function (e) {
+      if (dropdown.hidden) return;
+      var elems = getItems();
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlight(activeIdx + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlight(activeIdx - 1);
+      } else if (e.key === 'Enter' && activeIdx >= 0) {
+        e.preventDefault();
+        selectItem(activeIdx);
+      } else if (e.key === 'Escape') {
+        dropdown.hidden = true;
+        activeIdx = -1;
+        void elems;
+      }
+    });
+
+    list.addEventListener('mousedown', function (e) {
+      var li = e.target.closest('.ac-item');
+      if (!li) return;
+      e.preventDefault();
+      selectItem(parseInt(li.dataset.idx, 10));
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!container.contains(e.target)) {
+        dropdown.hidden = true;
+        activeIdx = -1;
+      }
+    });
+  }
+
+  document.querySelectorAll('.search-header').forEach(initAutoComplete);
+}());
+
 // Entrance animations — reveal cards as they enter the viewport
 (function cardAnimations() {
   if (!('IntersectionObserver' in window)) {

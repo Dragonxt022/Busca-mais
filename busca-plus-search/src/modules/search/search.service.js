@@ -8,6 +8,19 @@ const { errorTypes } = require('../../utils/errors');
 const MAX_SUMMARY_LENGTH = 500;
 const SNIPPET_LENGTH = 220;
 const FOCUS_LENGTH = 140;
+const DOCUMENT_INTENT_KEYWORDS = [
+  'seletivo',
+  'edital',
+  'processo seletivo',
+  'concurso',
+  'chamamento',
+  'licitacao',
+  'pregao',
+  'lei',
+  'decreto',
+  'portaria',
+  'contrato',
+];
 
 class SearchService {
   constructor() {
@@ -116,6 +129,119 @@ class SearchService {
         .map((token) => token.trim())
         .filter((token) => token.length >= 2)
     ));
+  }
+
+  normalizeSearchText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ' ');
+  }
+
+  extractSearchSignals(query) {
+    const normalizedQuery = this.normalizeSearchText(query).trim();
+    const tokens = this.tokenizeQuery(normalizedQuery);
+    const years = tokens
+      .filter((token) => /^\d{4}$/.test(token))
+      .map((token) => Number(token))
+      .filter((year) => year >= 1900 && year <= 2100);
+    const semanticTokens = tokens.filter((token) => !/^\d{4}$/.test(token));
+    const intentKeywords = DOCUMENT_INTENT_KEYWORDS
+      .filter((keyword) => normalizedQuery.includes(this.normalizeSearchText(keyword)));
+
+    return {
+      normalizedQuery,
+      tokens,
+      semanticTokens,
+      years,
+      intentKeywords,
+      shouldRerank: years.length > 0 || intentKeywords.length > 0,
+    };
+  }
+
+  extractDocumentYear(doc = {}) {
+    const candidates = [doc.publication_date, doc.document_date, doc.crawled_at];
+
+    for (const value of candidates) {
+      if (!value) continue;
+
+      const raw = String(value);
+      const yearMatch = raw.match(/\b(19|20)\d{2}\b/);
+      if (yearMatch) {
+        return Number(yearMatch[0]);
+      }
+
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.getUTCFullYear();
+      }
+    }
+
+    return 0;
+  }
+
+  buildRerankMetrics(hit, signals) {
+    const doc = hit?.document || {};
+    const title = this.normalizeSearchText(doc.title);
+    const description = this.normalizeSearchText(doc.description);
+    const documentType = this.normalizeSearchText(doc.document_type);
+    const haystack = [title, description, documentType].filter(Boolean).join(' ');
+    const titleTokenMatches = signals.semanticTokens.filter((token) => title.includes(token)).length;
+    const exactTitleMatch = signals.semanticTokens.length > 0
+      && signals.semanticTokens.every((token) => title.includes(token));
+    const intentKeywordMatches = signals.intentKeywords.filter((keyword) => haystack.includes(this.normalizeSearchText(keyword))).length;
+    const matchedYearInTitle = signals.years.some((year) => title.includes(String(year)));
+    const documentYear = this.extractDocumentYear(doc);
+    const matchedYearInDocument = signals.years.includes(documentYear);
+    const recency = documentYear || this.extractDocumentYear({ crawled_at: doc.crawled_at });
+    const exactPhraseMatch = Boolean(signals.normalizedQuery && title.includes(signals.normalizedQuery));
+
+    return {
+      matchedYearInTitle: matchedYearInTitle ? 1 : 0,
+      matchedYearInDocument: matchedYearInDocument ? 1 : 0,
+      exactPhraseMatch: exactPhraseMatch ? 1 : 0,
+      exactTitleMatch: exactTitleMatch ? 1 : 0,
+      titleTokenMatches,
+      intentKeywordMatches,
+      recency,
+      textMatch: Number(hit?.text_match || 0),
+      crawledAt: doc.crawled_at ? new Date(doc.crawled_at).getTime() : 0,
+    };
+  }
+
+  rerankHits(hits = [], query = '') {
+    if (!Array.isArray(hits) || hits.length <= 1) {
+      return hits;
+    }
+
+    const signals = this.extractSearchSignals(query);
+    if (!signals.shouldRerank) {
+      return hits;
+    }
+
+    return hits
+      .map((hit, index) => ({
+        hit,
+        index,
+        metrics: this.buildRerankMetrics(hit, signals),
+      }))
+      .sort((left, right) => {
+        const comparisons = [
+          right.metrics.matchedYearInTitle - left.metrics.matchedYearInTitle,
+          right.metrics.matchedYearInDocument - left.metrics.matchedYearInDocument,
+          right.metrics.exactPhraseMatch - left.metrics.exactPhraseMatch,
+          right.metrics.exactTitleMatch - left.metrics.exactTitleMatch,
+          right.metrics.titleTokenMatches - left.metrics.titleTokenMatches,
+          right.metrics.intentKeywordMatches - left.metrics.intentKeywordMatches,
+          right.metrics.recency - left.metrics.recency,
+          right.metrics.textMatch - left.metrics.textMatch,
+          right.metrics.crawledAt - left.metrics.crawledAt,
+          left.index - right.index,
+        ];
+
+        return comparisons.find((value) => value !== 0) || 0;
+      })
+      .map((entry) => entry.hit);
   }
 
   highlightSnippet(text, tokens) {
@@ -244,11 +370,12 @@ class SearchService {
       const result = await typesense.collections(this.collectionName)
         .documents()
         .search(this.buildSearchParams({ query, page, perPage: 10, sourceId, state, city }));
+      const rerankedHits = this.rerankHits(result.hits, query);
 
       await this.logSearch(query, result.found, sourceId, 'web', { ...context, state, city });
 
       return {
-        hits: result.hits.map((hit) => this.formatHit(hit, query)),
+        hits: rerankedHits.map((hit) => this.formatHit(hit, query)),
         found: result.found,
         page: result.page,
         perPage: result.per_page,
@@ -282,6 +409,70 @@ class SearchService {
     }
   }
 
+  async getIndexedSourceCount(state = null, city = null) {
+    try {
+      const params = {
+        q: '*',
+        query_by: 'title',
+        per_page: 0,
+        facet_by: 'source_id',
+        max_facet_values: 1000,
+      };
+
+      const filters = [];
+      if (state) filters.push(`source_state:=${state}`);
+      if (city) filters.push(`source_city:=${city}`);
+      if (filters.length) params.filter_by = filters.join(' && ');
+
+      const result = await typesense.collections(this.collectionName)
+        .documents()
+        .search(params);
+
+      const sourceFacet = Array.isArray(result.facet_counts)
+        ? result.facet_counts.find((facet) => facet.field_name === 'source_id')
+        : null;
+
+      return Array.isArray(sourceFacet?.counts) ? sourceFacet.counts.length : 0;
+    } catch (error) {
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Indexed source count unavailable: ${error.message}`);
+        return 0;
+      }
+
+      logger.error('Indexed source count error:', error);
+      return 0;
+    }
+  }
+
+  async getIndexedItemCount(state = null, city = null) {
+    try {
+      const params = {
+        q: '*',
+        query_by: 'title',
+        per_page: 0,
+      };
+
+      const filters = [];
+      if (state) filters.push(`source_state:=${state}`);
+      if (city) filters.push(`source_city:=${city}`);
+      if (filters.length) params.filter_by = filters.join(' && ');
+
+      const result = await typesense.collections(this.collectionName)
+        .documents()
+        .search(params);
+
+      return Number(result.found || 0);
+    } catch (error) {
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Indexed item count unavailable: ${error.message}`);
+        return 0;
+      }
+
+      logger.error('Indexed item count error:', error);
+      return 0;
+    }
+  }
+
   async getPageById(id) {
     try {
       const result = await typesense.collections(this.collectionName)
@@ -305,27 +496,62 @@ class SearchService {
   }
 
   async getSuggestions(query) {
+    const q = String(query || '').trim();
+    try {
+      const [popularResult, typesenseResult] = await Promise.allSettled([
+        this._getPopularTerms(q),
+        q.length >= 2 ? this._getTypesenseSuggestions(q) : Promise.resolve([]),
+      ]);
+
+      const popular = popularResult.status === 'fulfilled' ? popularResult.value : [];
+      const fromTypesense = typesenseResult.status === 'fulfilled' ? typesenseResult.value : [];
+
+      const seen = new Set(popular.map((s) => s.text.toLowerCase()));
+      const merged = [...popular];
+      for (const item of fromTypesense) {
+        if (!seen.has(item.text.toLowerCase())) {
+          merged.push(item);
+          seen.add(item.text.toLowerCase());
+        }
+      }
+
+      return merged.slice(0, 8);
+    } catch {
+      return [];
+    }
+  }
+
+  async _getPopularTerms(query) {
+    try {
+      const params = { limit: 6 };
+      if (query.length >= 1) params.q = query;
+      const { data } = await axios.get(`${this.crawlerApiUrl}/api/public/top-searches`, {
+        params,
+        timeout: 2000,
+      });
+      return Array.isArray(data)
+        ? data.map((item) => ({ text: item.query, type: 'popular', count: item.count }))
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async _getTypesenseSuggestions(query) {
     try {
       const result = await typesense.collections(this.collectionName)
         .documents()
         .search({
           q: query,
           query_by: 'title, description',
-          per_page: 5,
+          per_page: 4,
           num_typos: 1,
         });
-
-      return result.hits.map((hit) => ({
-        text: hit.document.title,
-        type: 'title',
-      }));
+      return result.hits.map((hit) => ({ text: hit.document.title, type: 'title' }));
     } catch (error) {
       if (this.isRecoverableSearchError(error)) {
-        logger.warn(`Suggestions unavailable for query "${query}": ${error.message}`);
-        return [];
+        logger.warn(`Typesense suggestions unavailable for "${query}": ${error.message}`);
       }
-
-      logger.error('Suggestions error:', error);
       return [];
     }
   }

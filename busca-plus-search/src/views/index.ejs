@@ -33,14 +33,28 @@
       <form class="initial-search" action="/" method="GET">
         <div class="search-header">
           <span class="material-icons">search</span>
-          <input type="text" name="q" class="form-control" placeholder="Pesquisar no Busca+" autofocus>
+          <input type="text" name="q" class="form-control" placeholder="Pesquisar no Busca+" autofocus autocomplete="off">
+          <input type="hidden" name="state" value="<%= state || '' %>">
+          <input type="hidden" name="city" value="<%= city || '' %>">
           <button type="button" class="clear-btn" aria-label="Limpar pesquisa">
             <span class="material-icons">close</span>
           </button>
+          <div class="ac-dropdown" hidden aria-live="polite">
+            <ul class="ac-list" role="listbox" aria-label="Sugestões de pesquisa"></ul>
+          </div>
+        </div>
+        <div class="home-quick-info">
+          <div class="home-quick-pill">
+            <span class="material-icons">location_on</span>
+            <span>Busca padrao em <strong><%= city || 'Cujubim' %>, <%= state || 'RO' %></strong></span>
+          </div>
+          <div class="home-quick-pill">
+            <span class="material-icons">hub</span>
+            <span><strong><%= Number(homeStats?.totalIndexedItems || 0).toLocaleString('pt-BR') %></strong> itens indexados ate o momento</span>
+          </div>
         </div>
         <div class="initial-buttons">
           <button type="submit">Pesquisa Busca+</button>
-          <button type="button">Estou com sorte</button>
         </div>
       </form>
     </div>
@@ -63,14 +77,15 @@
         <button type="button" class="clear-btn" aria-label="Limpar pesquisa">
           <span class="material-icons">close</span>
         </button>
+        <div class="ac-dropdown" hidden aria-live="polite">
+          <ul class="ac-list" role="listbox" aria-label="Sugestões de pesquisa"></ul>
+        </div>
       </form>
       <div class="nav-links">
         <button type="button" class="nav-location-btn js-open-location" title="Alterar localização">
           <span class="material-icons">location_on</span>
           <span class="nav-location-label"><%= city ? city : (state ? state : 'Localização') %></span>
         </button>
-        <span class="material-icons">apps</span>
-        <span class="material-icons">notifications</span>
         <button type="button" class="nav-auth-btn nav-auth-btn-compact" data-auth-open="login">Login</button>
         <a href="/profile" class="nav-profile-link nav-profile-link-compact" data-auth-profile-link="true" hidden>
           <img src="" alt="Foto de perfil" class="nav-profile-avatar" data-auth-avatar="true">
@@ -125,7 +140,13 @@
         </div>
       <% } else { %>
         <div class="results-column">
-          <div class="stats-line"><%= statsLabel %></div>
+          <div class="stats-line">
+            <span class="stats-line-primary"><%= statsLabel %></span>
+            <span class="stats-line-chip">
+              <span class="material-icons">place</span>
+              <span><%= city || 'Cujubim' %>, <%= state || 'RO' %></span>
+            </span>
+          </div>
           <% if (hasQuery && results && results.length > 0 && aiReportEnabled) { %>
             <section class="ai-report-section ai-report-inline" id="aiReportSection" data-query="<%= query %>">
               <div class="ai-report-loading" id="aiReportLoading">
@@ -249,48 +270,52 @@
                     <%= resultHref %>
                   </span>
                 </div>
-                <h3 class="result-title">
-                  <a href="<%= detailHref %>">
-                    <% if (result.highlights && result.highlights.title) { %>
-                      <%- result.highlights.title %>
+                <div class="result-main-row">
+                  <div class="result-main-copy">
+                    <h3 class="result-title">
+                      <a href="<%= detailHref %>">
+                        <% if (result.highlights && result.highlights.title) { %>
+                          <%- result.highlights.title %>
+                        <% } else { %>
+                          <%= resultTitle %>
+                        <% } %>
+                      </a>
+                    </h3>
+                    <% if (isCatalogDocument) { %>
+                      <div class="result-catalog-meta">
+                        <% if (result.documentType) { %><span><strong>Tipo:</strong> <%= result.documentType %></span><% } %>
+                        <% if (result.documentNumber) { %><span><strong>Numero:</strong> <%= result.documentNumber %></span><% } %>
+                        <% if (result.documentDate) { %><span><strong>Documento:</strong> <%= result.documentDate %></span><% } %>
+                        <% if (result.publicationDate) { %><span><strong>Publicacao:</strong> <%= result.publicationDate %></span><% } %>
+                      </div>
                     <% } else { %>
-                      <%= resultTitle %>
+                      <div class="result-catalog-meta">
+                        <% if (result.domain) { %><span><strong>Dominio:</strong> <%= result.domain %></span><% } %>
+                        <% if (result.crawledAt) { %><span><strong>Indexado:</strong> <%= new Date(result.crawledAt).toLocaleDateString('pt-BR') %></span><% } %>
+                      </div>
                     <% } %>
-                  </a>
-                </h3>
-                <% if (isCatalogDocument) { %>
-                  <div class="result-catalog-meta">
-                    <% if (result.documentType) { %><span><strong>Tipo:</strong> <%= result.documentType %></span><% } %>
-                    <% if (result.documentNumber) { %><span><strong>Numero:</strong> <%= result.documentNumber %></span><% } %>
-                    <% if (result.documentDate) { %><span><strong>Documento:</strong> <%= result.documentDate %></span><% } %>
-                    <% if (result.publicationDate) { %><span><strong>Publicacao:</strong> <%= result.publicationDate %></span><% } %>
+                    <p class="result-description <%= isCatalogDocument ? 'result-description-catalog' : '' %>">
+                      <% if (result.matchSnippetHtml) { %>
+                        <%- result.matchSnippetHtml %>
+                      <% } else { %>
+                        <%= resultSummary.substring(0, 240) %><%= resultSummary.length > 240 ? '...' : '' %>
+                      <% } %>
+                    </p>
                   </div>
-                <% } else { %>
-                  <div class="result-catalog-meta">
-                    <% if (result.domain) { %><span><strong>Dominio:</strong> <%= result.domain %></span><% } %>
-                    <% if (result.crawledAt) { %><span><strong>Indexado:</strong> <%= new Date(result.crawledAt).toLocaleDateString('pt-BR') %></span><% } %>
+                  <div class="result-actions">
+                    <a href="<%= detailHref %>" class="result-action-link result-action-link-primary">
+                      <span class="material-icons">description</span>
+                      Ver detalhes
+                    </a>
+                    <a href="<%= resultHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link">
+                      <span class="material-icons"><%= openIcon %></span>
+                      <%= openLabel %>
+                    </a>
+                    <a href="<%= sourceHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link muted-link">
+                      <span class="material-icons">travel_explore</span>
+                      Ver fonte
+                    </a>
                   </div>
-                <% } %>
-                <p class="result-description <%= isCatalogDocument ? 'result-description-catalog' : '' %>">
-                  <% if (result.matchSnippetHtml) { %>
-                    <%- result.matchSnippetHtml %>
-                  <% } else { %>
-                    <%= resultSummary.substring(0, 240) %><%= resultSummary.length > 240 ? '...' : '' %>
-                  <% } %>
-                </p>
-                <div class="result-actions">
-                  <a href="<%= detailHref %>" class="result-action-link">
-                    <span class="material-icons">description</span>
-                    Ver detalhes
-                  </a>
-                  <a href="<%= resultHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link">
-                    <span class="material-icons"><%= openIcon %></span>
-                    <%= openLabel %>
-                  </a>
-                  <a href="<%= sourceHref %>" target="_blank" rel="noopener noreferrer" class="result-action-link muted-link">
-                    <span class="material-icons">travel_explore</span>
-                    Ver fonte
-                  </a>
                 </div>
               </div>
               <% if (sponsoredSlots && sponsoredSlots.inline && sponsoredSlots.inline.some((slot) => slot.insertAfter === (index + 1))) { %>
@@ -314,6 +339,15 @@
                     </h3>
                     <% if (sponsor.description) { %>
                       <p class="result-description"><%= sponsor.description %></p>
+                    <% } %>
+                    <% if (sponsor.images && sponsor.images.length > 0) { %>
+                      <div class="sponsor-thumbnails">
+                        <% sponsor.images.forEach((imgUrl) => { %>
+                          <a class="sponsor-thumb-link" href="<%= sponsor.url %>" target="_blank" rel="noopener noreferrer sponsored" data-sponsor-id="<%= sponsor.id %>">
+                            <img class="sponsor-thumb" src="<%= imgUrl %>" alt="<%= sponsor.name %>" loading="lazy" onerror="this.parentElement.style.display='none'">
+                          </a>
+                        <% }) %>
+                      </div>
                     <% } %>
                   </article>
                 <% }) %>

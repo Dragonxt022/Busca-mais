@@ -42,6 +42,7 @@ test('buildPageViewModel maps page data into a render-friendly payload', () => {
   assert.match(viewModel.contentPreviewHtml, /Descricao da secao/);
   assert.equal(viewModel.originalLabel, 'Ver documento original');
   assert.equal(viewModel.documentMetaItems.length, 5);
+  assert.equal(viewModel.readingPreviewMaxHeight, 800);
   assert.match(viewModel.formattedContentHtml, /document-section-title/);
   assert.match(viewModel.formattedContentHtml, /Descricao da secao/);
 });

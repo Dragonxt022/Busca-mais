@@ -113,97 +113,9 @@
     return Array.from(root.querySelectorAll('.search-highlight'));
   }
 
-  function scoreElement(text, focus, queryTokens) {
-    const normalizedText = normalizeText(text);
-
-    if (!normalizedText) {
-      return 0;
-    }
-
-    let score = 0;
-
-    if (focus) {
-      if (normalizedText.includes(focus)) {
-        score += 1000;
-      }
-
-      focus.split(/\s+/)
-        .filter((token) => token.length >= 3)
-        .forEach((token) => {
-          if (normalizedText.includes(token)) {
-            score += 20;
-          }
-        });
-    }
-
-    queryTokens.forEach((token) => {
-      if (normalizedText.includes(normalizeText(token))) {
-        score += 8;
-      }
-    });
-
-    return score;
-  }
-
-  function findBestTarget(root, query, focus) {
-    const normalizedFocus = normalizeText(focus);
-    const queryTokens = getQueryTokens(query);
-    const candidates = Array.from(root.querySelectorAll('p, li, blockquote, h2, h3, h4'));
-
-    let bestElement = null;
-    let bestScore = 0;
-
-    candidates.forEach((element) => {
-      const score = scoreElement(element.textContent, normalizedFocus, queryTokens);
-      if (score > bestScore) {
-        bestScore = score;
-        bestElement = element;
-      }
-    });
-
-    if (bestElement) {
-      return bestElement;
-    }
-
-    return root.querySelector('.search-highlight');
-  }
-
-  function scrollToTarget(target) {
-    if (!target) {
-      return;
-    }
-
-    const highlight = target.classList?.contains('search-highlight')
-      ? target
-      : target.querySelector('.search-highlight');
-
-    if (target.classList) {
-      target.classList.add('search-target-block');
-    }
-
-    const scrollTarget = highlight || target;
-
-    window.setTimeout(() => {
-      scrollTarget.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-
-      if (highlight) {
-        highlight.classList.add('highlight-pulse');
-        window.setTimeout(() => {
-          highlight.classList.remove('highlight-pulse');
-        }, 1600);
-      }
-    }, 250);
-  }
-
   const query = typeof window.searchQuery !== 'undefined'
     ? window.searchQuery
     : document.body.dataset.searchQuery || '';
-  const focus = typeof window.searchFocus !== 'undefined'
-    ? window.searchFocus
-    : document.body.dataset.searchFocus || '';
   const pageId = document.body.dataset.pageId || '';
 
   function escapeHtml(value) {
@@ -293,7 +205,6 @@
 
   setSearchDisplay(query);
   highlightText(content, query);
-  scrollToTarget(findBestTarget(content, query, focus));
 
   summaryTrigger?.addEventListener('click', requestAiSummary);
 }());

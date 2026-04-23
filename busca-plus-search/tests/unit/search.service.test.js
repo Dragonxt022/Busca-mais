@@ -126,3 +126,32 @@ test('SearchService.createEmptySearchResult normalizes empty search payload', ()
     facets: [],
   });
 });
+
+test('SearchService.rerankHits favors matching year and stronger title intent for official-document queries', () => {
+  const service = new SearchService();
+
+  const hits = service.rerankHits([
+    {
+      text_match: 120,
+      document: {
+        id: 'older-1',
+        title: 'Processo seletivo simplificado 2024',
+        document_type: 'Edital',
+        publication_date: '2024-02-10',
+        crawled_at: '2026-04-20T10:00:00.000Z',
+      },
+    },
+    {
+      text_match: 110,
+      document: {
+        id: 'newer-2026',
+        title: 'Seletivo 2026 para contratacao temporaria',
+        document_type: 'Edital',
+        publication_date: '2026-01-15',
+        crawled_at: '2026-04-18T10:00:00.000Z',
+      },
+    },
+  ], 'seletivo 2026');
+
+  assert.equal(hits[0].document.id, 'newer-2026');
+});

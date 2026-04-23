@@ -53,11 +53,6 @@
           <% if (leadExcerpt && !isCatalogDocument) { %>
             <p class="page-lead"><%= leadExcerpt %></p>
           <% } %>
-
-          <a href="<%= openUrl %>" target="_blank" rel="noopener noreferrer" class="article-source-link">
-            <span class="material-icons">open_in_new</span>
-            <%= originalLabel %>
-          </a>
         </header>
 
 
@@ -92,18 +87,16 @@
               <h2><%= isCatalogDocument ? 'Conteudo extraido' : 'Previa do conteudo' %></h2>
             </div>
           </div>
-          <div class="reading-preview <%= isCatalogDocument ? 'reading-preview-full' : '' %>" data-reading-content="true" id="readingContent">
+          <div class="reading-preview <%= isCatalogDocument ? 'reading-preview-full' : '' %>" data-reading-content="true" id="readingContent" style="max-height:<%= readingPreviewMaxHeight %>px">
             <div class="reading-preview-text">
               <%- isCatalogDocument ? formattedContentHtml : contentPreviewHtml %>
             </div>
-            <% if (!isCatalogDocument) { %>
             <div class="reading-preview-fade">
               <a href="<%= openUrl %>" target="_blank" rel="noopener noreferrer" class="original-cta">
                 <span class="material-icons">open_in_new</span>
-                <%= originalLabel %>
+                Ver documento original
               </a>
             </div>
-            <% } %>
           </div>
         </section>
 

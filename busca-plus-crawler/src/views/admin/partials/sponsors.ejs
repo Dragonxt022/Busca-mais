@@ -427,6 +427,8 @@ document.getElementById('sState').addEventListener('change', function onStateCha
 
 document.getElementById('sponsorForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
   const id = document.getElementById('sponsorId').value;
   const formData = new FormData();
   formData.append('name', document.getElementById('sName').value.trim());
@@ -457,6 +459,7 @@ document.getElementById('sponsorForm').addEventListener('submit', async (e) => {
     sponsorModal.hide();
     location.reload();
   } catch (err) {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Salvar'; }
     alert('Erro: ' + (err.response?.data?.error || err.message));
   }
 });

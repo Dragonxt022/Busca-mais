@@ -92,6 +92,7 @@ services:
       SCREENSHOTS_DIR: /app/screenshots
     volumes:
       - crawler_screenshots:/app/screenshots
+      - crawler_uploads:/app/uploads
     networks:
       - busca-plus-network
     depends_on:
@@ -203,3 +204,4 @@ volumes:
   redis_data:
   typesense_data:
   crawler_screenshots:
+  crawler_uploads:

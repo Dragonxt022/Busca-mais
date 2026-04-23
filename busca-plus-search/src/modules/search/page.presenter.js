@@ -1,4 +1,5 @@
 const DEFAULT_EMPTY_CONTENT = 'Nenhum conteudo textual disponivel.';
+const READING_PREVIEW_MAX_HEIGHT = 800;
 
 const escapeHtml = (value) => String(value || '')
   .replace(/&/g, '&amp;')
@@ -264,6 +265,7 @@ const buildPageViewModel = ({
     originalLabel,
     copyrightNotice,
     formattedContentHtml: formatContentHtml(readableContent),
+    readingPreviewMaxHeight: READING_PREVIEW_MAX_HEIGHT,
     aiPageEnabled: false,
   };
 };

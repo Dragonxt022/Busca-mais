@@ -1,4 +1,6 @@
 (function () {
+  var DEFAULT_STATE = 'RO';
+  var DEFAULT_CITY = 'Cujubim';
   var STORAGE_STATE = 'busca_state';
   var STORAGE_CITY = 'busca_city';
   var STORAGE_SET = 'busca_location_set';
@@ -16,6 +18,12 @@
     localStorage.setItem(STORAGE_SET, '1');
   }
 
+  function ensureDefaultLocation() {
+    if (isLocationSet()) return getLocation();
+    setLocation(DEFAULT_STATE, DEFAULT_CITY);
+    return getLocation();
+  }
+
   function isLocationSet() {
     return localStorage.getItem(STORAGE_SET) === '1';
   }
@@ -28,6 +36,14 @@
     });
     document.querySelectorAll('.logo, .logo-large, .page-logo').forEach(function (el) {
       el.setAttribute('title', 'Busca+' + city);
+    });
+  }
+
+  function updateLocationLabels() {
+    var loc = getLocation();
+    var label = loc.city || loc.state || 'Localizacao';
+    document.querySelectorAll('.nav-location-label').forEach(function (el) {
+      el.textContent = label;
     });
   }
 
@@ -53,7 +69,7 @@
     var modal = document.getElementById('locationModal');
     if (!modal) return;
     modal.removeAttribute('hidden');
-    var loc = getLocation();
+    var loc = ensureDefaultLocation();
     var stateSelect = document.getElementById('locationState');
     var skipBtn = document.getElementById('locationSkip');
     if (loc.state && stateSelect && stateSelect.value !== loc.state) {
@@ -61,7 +77,7 @@
       loadCities(loc.state, loc.city);
     }
     if (skipBtn) {
-      skipBtn.textContent = isLocationSet() ? 'Cancelar' : 'Pular por enquanto';
+      skipBtn.textContent = 'Fechar';
     }
   }
 
@@ -143,6 +159,7 @@
         setLocation(state, city);
         hideModal();
         updateLogo();
+        updateLocationLabels();
         // inject into all search forms and submit the pending one
         document.querySelectorAll('form[action="/"], form.search-header').forEach(injectLocationParams);
         if (window._locationPendingForm) {
@@ -154,12 +171,7 @@
 
     if (skipBtn) {
       skipBtn.addEventListener('click', function () {
-        localStorage.setItem(STORAGE_SET, '1');
         hideModal();
-        if (window._locationPendingForm) {
-          window._locationPendingForm.submit();
-          window._locationPendingForm = null;
-        }
       });
     }
 
@@ -172,20 +184,11 @@
 
   function interceptSearchForms() {
     document.querySelectorAll('form[action="/"], form.search-header').forEach(function (form) {
-      if (isLocationSet()) {
-        injectLocationParams(form);
-        return;
-      }
+      injectLocationParams(form);
 
       form.addEventListener('submit', function (e) {
         var q = form.querySelector('input[name="q"]');
         if (!q || !q.value.trim()) return;
-
-        if (!isLocationSet()) {
-          e.preventDefault();
-          window._locationPendingForm = form;
-          showModal();
-        }
       }, { capture: true });
     });
   }
@@ -197,7 +200,9 @@
   }
 
   function init() {
+    ensureDefaultLocation();
     updateLogo();
+    updateLocationLabels();
     bindModal();
     interceptSearchForms();
     bindNavButtons();

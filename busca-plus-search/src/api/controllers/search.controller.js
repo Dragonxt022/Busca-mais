@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const { validateSearch, validatePageId, validateSuggestion } = require('../validators/search.validator');
+const { validateSearch, validatePageId } = require('../validators/search.validator');
 const { errorTypes } = require('../../utils/errors');
 const {
   RESULTS_PER_PAGE,
@@ -15,6 +15,11 @@ const config = require('../../config');
 let _aiCache = null;
 let _aiCacheTime = 0;
 const AI_CACHE_TTL = 5 * 60 * 1000;
+const DEFAULT_STATE = 'RO';
+const DEFAULT_CITY = 'Cujubim';
+let _homeStatsCache = null;
+let _homeStatsCacheTime = 0;
+const HOME_STATS_CACHE_TTL = 5 * 60 * 1000;
 
 async function getAiFeatures() {
   const now = Date.now();
@@ -29,15 +34,63 @@ async function getAiFeatures() {
   }
 }
 
+function resolveLocation(rawState, rawCity) {
+  const state = String(rawState || '').trim().toUpperCase();
+  const city = String(rawCity || '').trim();
+
+  if (!state && !city) {
+    return { state: DEFAULT_STATE, city: DEFAULT_CITY };
+  }
+
+  return {
+    state: state || null,
+    city: city || null,
+  };
+}
+
+async function getHomeStats(state, city) {
+  const cacheKey = `${state || ''}:${city || ''}`;
+  const now = Date.now();
+
+  if (_homeStatsCache && _homeStatsCache.key === cacheKey && now - _homeStatsCacheTime < HOME_STATS_CACHE_TTL) {
+    return _homeStatsCache.value;
+  }
+
+  try {
+    const { data } = await axios.get(`${config.crawler.apiUrl}/api/public/search-home-stats`, {
+      params: { state, city },
+      timeout: 2000,
+    });
+    const value = {
+      totalSources: Number(data?.totalSources || 0),
+      totalIndexedItems: Number(data?.totalIndexedItems || 0),
+      state: data?.state || state || null,
+      city: data?.city || city || null,
+    };
+    _homeStatsCache = { key: cacheKey, value };
+    _homeStatsCacheTime = now;
+    return value;
+  } catch {
+    return {
+      totalSources: 0,
+      totalIndexedItems: 0,
+      state: state || null,
+      city: city || null,
+    };
+  }
+}
+
 class SearchController {
   constructor({
     searchService = new SearchService(),
     aiSummaryService = new AiSummaryService(),
     aiFeaturesLoader = getAiFeatures,
+    homeStatsLoader = getHomeStats,
   } = {}) {
     this.searchService = searchService;
     this.aiSummaryService = aiSummaryService;
     this.aiFeaturesLoader = aiFeaturesLoader;
+    this.homeStatsLoader = homeStatsLoader;
 
     this.index = this.index.bind(this);
     this.search = this.search.bind(this);
@@ -52,8 +105,7 @@ class SearchController {
     try {
       const searchData = validateSearch(req.query);
       const tab = req.query.tab || SEARCH_TABS.ALL;
-      const state = req.query.state || null;
-      const city = req.query.city || null;
+      const { state, city } = resolveLocation(req.query.state, req.query.city);
       const aiFeatures = await this.aiFeaturesLoader();
       const headers = req.headers || {};
       const requestContext = {
@@ -64,7 +116,11 @@ class SearchController {
       };
 
       if (!searchData) {
-        return res.render('index', { ...buildIndexViewModel({ tab }), aiFeatures, state, city });
+        const homeStats = await this.homeStatsLoader(state, city);
+        if (!homeStats.totalIndexedItems) {
+          homeStats.totalIndexedItems = await this.searchService.getIndexedItemCount(state, city);
+        }
+        return res.render('index', { ...buildIndexViewModel({ tab }), aiFeatures, state, city, homeStats });
       }
 
       const { query, page, sourceId } = searchData;
@@ -77,6 +133,7 @@ class SearchController {
           aiFeatures,
           state,
           city,
+          homeStats: null,
           sponsors: [],
         });
       }
@@ -91,6 +148,7 @@ class SearchController {
         aiFeatures,
         state,
         city,
+        homeStats: null,
       });
     } catch (error) {
       return next(error);
@@ -110,7 +168,8 @@ class SearchController {
       }
 
       const { query, page, sourceId } = searchData;
-      const results = await this.searchService.search(query, page, sourceId);
+      const { state, city } = resolveLocation(req.query.state, req.query.city);
+      const results = await this.searchService.search(query, page, sourceId, state, city);
 
       return res.json(results);
     } catch (error) {
@@ -140,14 +199,8 @@ class SearchController {
 
   async suggestions(req, res, next) {
     try {
-      const query = validateSuggestion(req.query.q);
-
-      if (!query) {
-        return res.json([]);
-      }
-
+      const query = String(req.query.q || '').trim().substring(0, 500);
       const suggestions = await this.searchService.getSuggestions(query);
-
       return res.json(suggestions);
     } catch (error) {
       return next(error);
@@ -167,7 +220,8 @@ class SearchController {
       }
 
       const { query, page, sourceId } = searchData;
-      const results = await this.searchService.searchImages(query, page, sourceId);
+      const { state, city } = resolveLocation(req.query.state, req.query.city);
+      const results = await this.searchService.searchImages(query, page, sourceId, state, city);
 
       return res.json(results);
     } catch (error) {

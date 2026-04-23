@@ -4,10 +4,11 @@ const helmet = require('helmet');
 const path = require('path');
 
 const apiRoutes = require('./api/routes');
-const { errorHandler, imageProxyMiddleware, notFoundHandler } = require('./api/middlewares');
+const { errorHandler, imageProxyMiddleware, notFoundHandler, uploadProxyMiddleware } = require('./api/middlewares');
 
 const app = express();
 const BODY_LIMIT = '5mb';
+const publicDir = path.join(__dirname, 'public');
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -31,8 +32,10 @@ app.use(cors());
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(publicDir, 'images')));
+app.use(express.static(publicDir));
 app.use('/images', imageProxyMiddleware);
+app.use('/uploads', uploadProxyMiddleware);
 app.use('/', apiRoutes);
 
 app.get('/health', (req, res) => {

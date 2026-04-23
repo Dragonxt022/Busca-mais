@@ -30,6 +30,12 @@ test('SearchController.index renders empty state when query is missing', async (
         throw new Error('search should not be called');
       },
     },
+    homeStatsLoader: async (state, city) => ({
+      totalSources: 17,
+      totalIndexedItems: 5923,
+      state,
+      city,
+    }),
   });
   const res = createResponse();
 
@@ -40,6 +46,10 @@ test('SearchController.index renders empty state when query is missing', async (
   assert.equal(res.state.render.view, 'index');
   assert.equal(res.state.render.payload.query, '');
   assert.equal(res.state.render.payload.totalHits, 0);
+  assert.equal(res.state.render.payload.state, 'RO');
+  assert.equal(res.state.render.payload.city, 'Cujubim');
+  assert.equal(res.state.render.payload.homeStats.totalSources, 17);
+  assert.equal(res.state.render.payload.homeStats.totalIndexedItems, 5923);
 });
 
 test('SearchController.index renders image payload from service', async () => {
