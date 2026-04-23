@@ -3,6 +3,7 @@ const axios = require('axios');
 const config = require('../../config');
 const { typesense, COLLECTION_NAME } = require('../../config/typesense');
 const { logger } = require('../../libs/logger');
+const { errorTypes } = require('../../utils/errors');
 
 const MAX_SUMMARY_LENGTH = 500;
 const SNIPPET_LENGTH = 220;
@@ -254,6 +255,11 @@ class SearchService {
         facets: result.facet_counts || [],
       };
     } catch (error) {
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Search backend unavailable for query "${query}": ${error.message}`);
+        return this.createEmptySearchResult(page, 10);
+      }
+
       logger.error('Search error:', error);
       throw error;
     }
@@ -288,6 +294,11 @@ class SearchService {
         return null;
       }
 
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Page lookup unavailable for ${id}: ${error.message}`);
+        throw errorTypes.SERVICE_UNAVAILABLE('Busca temporariamente indisponivel');
+      }
+
       logger.error('Get page error:', error);
       throw error;
     }
@@ -309,6 +320,11 @@ class SearchService {
         type: 'title',
       }));
     } catch (error) {
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Suggestions unavailable for query "${query}": ${error.message}`);
+        return [];
+      }
+
       logger.error('Suggestions error:', error);
       return [];
     }
@@ -329,9 +345,45 @@ class SearchService {
         perPage: result.per_page,
       };
     } catch (error) {
+      if (this.isRecoverableSearchError(error)) {
+        logger.warn(`Image search backend unavailable for query "${query}": ${error.message}`);
+        return this.createEmptySearchResult(page, 20);
+      }
+
       logger.error('Image search error:', error);
       throw error;
     }
+  }
+
+  createEmptySearchResult(page = 1, perPage = 10) {
+    return {
+      hits: [],
+      found: 0,
+      page: parseInt(page, 10) || 1,
+      perPage,
+      facets: [],
+    };
+  }
+
+  isRecoverableSearchError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    const code = String(error?.code || '').toUpperCase();
+
+    return Boolean(
+      error
+      && (
+        code === 'ECONNREFUSED'
+        || code === 'ENOTFOUND'
+        || code === 'ETIMEDOUT'
+        || code === 'ECONNRESET'
+        || error.httpStatus >= 500
+        || message.includes('typesense')
+        || message.includes('could not find a field named')
+        || message.includes('connection')
+        || message.includes('socket')
+        || message.includes('timed out')
+      )
+    );
   }
 
   buildSearchParams({ query, page, perPage, sourceId, state = null, city = null }) {

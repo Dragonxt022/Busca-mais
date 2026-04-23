@@ -202,6 +202,10 @@ class CrawlScheduler {
 
     try {
       const sourceId = key.replace('source-', '');
+      const pages = await Page.findAll({
+        attributes: ['id'],
+        where: { source_id: sourceId },
+      });
       const repeatableJobs = await discoverQueue.getRepeatableJobs();
       
       for (const job of repeatableJobs) {
@@ -212,7 +216,7 @@ class CrawlScheduler {
 
       const crawlJobs = await crawlQueue.getRepeatableJobs();
       for (const job of crawlJobs) {
-        if (job.key.includes(`scheduled-crawl-${sourceId}`)) {
+        if (pages.some((page) => job.key.includes(`scheduled-crawl-${page.id}`))) {
           await crawlQueue.removeRepeatableByKey(job.key);
         }
       }

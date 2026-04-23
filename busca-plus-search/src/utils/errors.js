@@ -11,6 +11,7 @@ const errorTypes = {
   NOT_FOUND: (resource) => new AppError(`${resource} nao encontrado`, 404),
   VALIDATION: (message) => new AppError(message, 400),
   UNAUTHORIZED: (message = 'Nao autorizado') => new AppError(message, 401),
+  SERVICE_UNAVAILABLE: (message = 'Servico temporariamente indisponivel') => new AppError(message, 503),
   INTERNAL: (message = 'Erro interno do servidor') => new AppError(message, 500),
 };
 

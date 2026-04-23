@@ -104,3 +104,25 @@ test('SearchService.formatHit uses internal detail page for catalog and regular 
   assert.equal(pageHit.matchSnippetHtml, 'Conteudo');
   assert.equal(pageHit.focusText, 'Conteudo');
 });
+
+test('SearchService.isRecoverableSearchError recognizes schema and connectivity issues', () => {
+  const service = new SearchService();
+
+  assert.equal(service.isRecoverableSearchError({ message: 'Could not find a field named `source_state` in the schema.' }), true);
+  assert.equal(service.isRecoverableSearchError({ code: 'ECONNREFUSED', message: 'connect ECONNREFUSED 127.0.0.1:8108' }), true);
+  assert.equal(service.isRecoverableSearchError({ httpStatus: 503, message: 'Service Unavailable' }), true);
+  assert.equal(service.isRecoverableSearchError({ httpStatus: 400, message: 'validation failed' }), false);
+});
+
+test('SearchService.createEmptySearchResult normalizes empty search payload', () => {
+  const service = new SearchService();
+  const payload = service.createEmptySearchResult('3', 20);
+
+  assert.deepEqual(payload, {
+    hits: [],
+    found: 0,
+    page: 3,
+    perPage: 20,
+    facets: [],
+  });
+});
