@@ -1,0 +1,156 @@
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb mb-0" style="font-size:0.8rem;">
+        <li class="breadcrumb-item"><a href="/admin/engine" class="text-decoration-none">Motor Unificado</a></li>
+        <li class="breadcrumb-item active">Itens de Conteudo</li>
+      </ol>
+    </nav>
+    <h1 class="h3 mb-1"><i class="bi bi-collection me-2"></i>Itens de Conteudo</h1>
+    <p class="text-muted mb-0"><%= data?.total || 0 %> itens no total</p>
+  </div>
+</div>
+
+<form class="card mb-4" method="GET" action="/admin/engine/content-items">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Busca</label>
+        <input class="form-control" name="q" value="<%= data?.filters?.q || '' %>" placeholder="Titulo, URL ou descricao">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Fonte</label>
+        <select class="form-select" name="sourceId">
+          <option value="">Todas</option>
+          <% (data?.sources || []).forEach((source) => { %>
+            <option value="<%= source.id %>" <%= String(data?.filters?.sourceId) === String(source.id) ? 'selected' : '' %>><%= source.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Tipo</label>
+        <select class="form-select" name="itemKind">
+          <option value="">Todos</option>
+          <% ['page','news','official_document','pdf','protocol','attachment','listing_item','other'].forEach((kind) => { %>
+            <option value="<%= kind %>" <%= data?.filters?.itemKind === kind ? 'selected' : '' %>><%= kind %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status">
+          <option value="">Todos</option>
+          <% ['pending','indexed','error'].forEach((s) => { %>
+            <option value="<%= s %>" <%= data?.filters?.status === s ? 'selected' : '' %>><%= s %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th style="width:35%">Item</th>
+          <th>Fonte</th>
+          <th>Tipo</th>
+          <th>Data pub.</th>
+          <th>Status</th>
+          <th>Coletado em</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!data?.items?.length) { %>
+          <tr><td colspan="7" class="text-muted text-center py-5">Nenhum item encontrado com os filtros atuais.</td></tr>
+        <% } %>
+        <% (data?.items || []).forEach((item) => { %>
+          <tr>
+            <td>
+              <div class="fw-semibold" style="max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= item.title || '' %>">
+                <%= item.title || '(sem titulo)' %>
+              </div>
+              <% if (item.description) { %>
+                <div class="text-muted small" style="max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= item.description %>"><%= item.description %></div>
+              <% } %>
+              <a href="<%= item.url %>" target="_blank" rel="noopener" class="text-muted small text-decoration-none" style="max-width:340px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= item.url %>">
+                <i class="bi bi-link-45deg"></i><%= item.url %>
+              </a>
+              <% if (item.file_url) { %>
+                <a href="<%= item.file_url %>" target="_blank" rel="noopener" class="text-danger small text-decoration-none" style="max-width:340px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= item.file_url %>">
+                  <i class="bi bi-file-earmark-arrow-down"></i> Anexo <%= item.file_extension || '' %>
+                </a>
+              <% } %>
+            </td>
+            <td class="text-nowrap"><small><%= item.searchableSource?.name || '-' %></small></td>
+            <td><span class="badge bg-info-subtle text-info"><%= item.item_kind %></span></td>
+            <td class="text-nowrap">
+              <% if (item.publication_date) { %>
+                <small><%= item.publication_date %></small>
+              <% } else { %>
+                <small class="text-muted">-</small>
+              <% } %>
+            </td>
+            <td>
+              <span class="badge <%= item.status === 'indexed' ? 'bg-success' : item.status === 'error' ? 'bg-danger' : 'bg-warning text-dark' %>">
+                <%= item.status %>
+              </span>
+              <% if (item.status === 'error' && item.error_message) { %>
+                <div class="text-danger small" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= item.error_message %>"><%= item.error_message %></div>
+              <% } %>
+            </td>
+            <td class="text-nowrap">
+              <small class="text-muted"><%= item.last_crawled_at ? new Date(item.last_crawled_at).toLocaleString('pt-BR') : '-' %></small>
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-secondary" onclick="indexItem(<%= item.id %>)" title="Re-indexar">
+                <i class="bi bi-arrow-repeat"></i>
+              </button>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (data?.pages > 1) { %>
+  <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
+    <small class="text-muted">
+      Pagina <%= data.page %> de <%= data.pages %> &mdash; <%= data.total %> itens
+    </small>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item <%= data.page <= 1 ? 'disabled' : '' %>">
+          <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, page: data.page - 1 }).toString() %>">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+        <% for (let p = Math.max(1, data.page - 2); p <= Math.min(data.pages, data.page + 2); p++) { %>
+          <li class="page-item <%= p === data.page ? 'active' : '' %>">
+            <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, page: p }).toString() %>"><%= p %></a>
+          </li>
+        <% } %>
+        <li class="page-item <%= data.page >= data.pages ? 'disabled' : '' %>">
+          <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, page: data.page + 1 }).toString() %>">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <% } %>
+</div>
+
+<script>
+  async function indexItem(itemId) {
+    const response = await axios.post('/api/admin/engine/content-items/' + itemId + '/index');
+    alert(response.data.ok ? 'Item indexado.' : 'Falha ao indexar item.');
+    location.reload();
+  }
+</script>

@@ -1018,6 +1018,320 @@ body.home-landing {
 }
 
 /* =========================
+   AI OVERVIEW SECTION - Estilo Google AI Overview
+========================= */
+.ai-overview-section {
+  max-width: 660px;
+  margin: 8px 0 20px;
+  padding: 0 20px;
+}
+
+.ai-overview-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.ai-overview-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #e8eaed;
+  border-top-color: var(--brand);
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.ai-overview-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-overview-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.ai-overview-sublabel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Card principal */
+.ai-overview-content {
+  background: #fff;
+  border: 1px solid #e8eaed;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Cabeçalho — ícone sparkle + label */
+.ai-overview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 0;
+}
+
+.ai-overview-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ai-overview-sparkle {
+  font-size: 18px;
+  background: linear-gradient(135deg, #4285f4, #9c27b0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ai-overview-title {
+  flex: 1;
+}
+
+.ai-overview-title h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f1f1f;
+  letter-spacing: 0;
+}
+
+.ai-overview-meta {
+  display: none; /* oculta provider/model para ficar limpo como Google */
+}
+
+.ai-overview-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-overview-close:hover {
+  background: #f1f3f4;
+}
+
+.ai-overview-close .material-icons {
+  font-size: 18px;
+}
+
+/* Corpo de texto */
+.ai-overview-body {
+  padding: 10px 16px 4px;
+  color: #1f1f1f;
+  font-size: 14px;
+  line-height: 1.7;
+  position: relative;
+}
+
+.ai-overview-body.collapsed {
+  max-height: 130px;
+  overflow: hidden;
+}
+
+.ai-overview-body.collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, #fff);
+  pointer-events: none;
+}
+
+.ai-overview-body p {
+  margin: 0 0 8px;
+}
+
+.ai-overview-body p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-overview-body ul {
+  margin: 6px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-overview-body li {
+  display: flex;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 14px;
+  color: #1f1f1f;
+  line-height: 1.6;
+}
+
+.ai-overview-body li::before {
+  content: '•';
+  color: #5f6368;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ai-overview-body strong {
+  font-weight: 600;
+}
+
+.ai-overview-body h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: #1f1f1f;
+}
+
+/* Botão "Mostrar mais" */
+.ai-overview-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 32px);
+  margin: 8px 16px 14px;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid #dadce0;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f1f1f;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ai-overview-expand:hover {
+  background: #f1f3f4;
+  border-color: #bdc1c6;
+}
+
+.ai-overview-expand .material-icons {
+  font-size: 18px;
+  color: #5f6368;
+  transition: transform 0.2s;
+}
+
+.ai-overview-expand.open .material-icons {
+  transform: rotate(180deg);
+}
+
+/* Fontes */
+.ai-overview-sources {
+  border-top: 1px solid #e8eaed;
+  padding: 0;
+}
+
+.ai-overview-sources-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #1a73e8;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.ai-overview-sources-toggle:hover {
+  background: #f8f9fa;
+}
+
+.ai-overview-sources-toggle .material-icons {
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+
+.ai-overview-sources-toggle.open .material-icons {
+  transform: rotate(180deg);
+}
+
+.ai-overview-sources-list {
+  padding: 4px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-overview-source-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #1f1f1f;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.ai-overview-source-item:hover {
+  background: #f8f9fa;
+}
+
+.ai-overview-source-score {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background: #e8f0fe;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1a73e8;
+  margin-top: 1px;
+}
+
+.ai-overview-source-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-overview-source-title {
+  font-weight: 500;
+  color: #1a73e8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-overview-source-meta {
+  color: #5f6368;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+#aiOverviewContent:not([hidden]) {
+  animation: fadeInUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (max-width: 768px) {
+  .ai-overview-section {
+    padding: 0 14px;
+    margin: 6px 0 16px;
+  }
+
+  .ai-overview-body {
+    font-size: 13px;
+  }
+}
+
+/* =========================
    AI REPORT SECTION - Sutil
 ========================= */
 .ai-report-section {

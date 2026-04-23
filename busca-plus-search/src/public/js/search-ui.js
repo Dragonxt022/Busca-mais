@@ -110,9 +110,9 @@
 
   const query = reportSection.dataset.query || '';
 
-  async function escapeHtml(text) {
+  function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(text || '');
     return div.innerHTML;
   }
 
@@ -152,7 +152,7 @@
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || data.message || 'Falha ao gerar relatorio');
+        throw new Error(data.error || data.error?.message || data.message || 'Falha ao gerar relatorio');
       }
 
       reportLoading.hidden = true;
@@ -178,4 +178,134 @@
   }
 
   loadReport();
+}());
+
+// AI Search Overview (visao geral semantica com embeddings)
+(function aiSearchOverview() {
+  const section = document.getElementById('aiOverviewSection');
+  const loading = document.getElementById('aiOverviewLoading');
+  const content = document.getElementById('aiOverviewContent');
+  const body = document.getElementById('aiOverviewBody');
+  const closeBtn = document.getElementById('aiOverviewClose');
+  const expandBtn = document.getElementById('aiOverviewExpand');
+  const expandLabel = document.getElementById('aiOverviewExpandLabel');
+  const sourcesContainer = document.getElementById('aiOverviewSources');
+  const sourcesToggle = document.getElementById('aiOverviewSourcesToggle');
+  const sourcesList = document.getElementById('aiOverviewSourcesList');
+  const sourcesLabel = document.getElementById('aiOverviewSourcesLabel');
+
+  if (!section || !loading) return;
+
+  const query = section.dataset.query || '';
+  const state = section.dataset.state || '';
+  const city = section.dataset.city || '';
+  const sourceId = section.dataset.source || '';
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text || '');
+    return div.innerHTML;
+  }
+
+  function renderSummary(summary) {
+    const lines = String(summary || '').split(/\n+/).map(function(l) { return l.trim(); }).filter(Boolean);
+    const bullets = lines.filter(function(l) { return /^[-*•]\s+/.test(l); });
+    const paragraphs = lines.filter(function(l) { return !/^[-*•]\s+/.test(l); });
+    const parts = [];
+
+    paragraphs.forEach(function(line) { parts.push('<p>' + escapeHtml(line) + '</p>'); });
+
+    if (bullets.length > 0) {
+      parts.push('<ul>' + bullets.map(function(l) {
+        return '<li>' + escapeHtml(l.replace(/^[-*•]\s+/, '')) + '</li>';
+      }).join('') + '</ul>');
+    }
+
+    return parts.join('') || '<p>' + escapeHtml(summary) + '</p>';
+  }
+
+  function renderSources(sources) {
+    if (!Array.isArray(sources) || sources.length === 0) return;
+
+    sourcesList.innerHTML = sources.map(function(s) {
+      const pct = Math.round((s.score || 0) * 100);
+      const title = s.title || 'Documento sem titulo';
+      const metaText = [s.sourceName, s.documentType, s.publicationDate].filter(Boolean).join(' · ');
+      const href = s.url || '#';
+      return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" class="ai-overview-source-item">'
+        + '<span class="ai-overview-source-score">' + pct + '%</span>'
+        + '<div class="ai-overview-source-info">'
+        + '<div class="ai-overview-source-title">' + escapeHtml(title) + '</div>'
+        + (metaText ? '<div class="ai-overview-source-meta">' + escapeHtml(metaText) + '</div>' : '')
+        + '</div>'
+        + '</a>';
+    }).join('');
+
+    sourcesContainer.hidden = false;
+  }
+
+  async function loadOverview() {
+    try {
+      const params = new URLSearchParams({ q: query });
+      if (state) params.set('state', state);
+      if (city) params.set('city', city);
+      if (sourceId) params.set('sourceId', sourceId);
+
+      const response = await fetch('/api/ai-overview?' + params.toString());
+      const data = await response.json();
+
+      if (!response.ok) {
+        loading.hidden = true;
+        section.hidden = true;
+        return;
+      }
+
+      loading.hidden = true;
+      content.hidden = false;
+      body.innerHTML = renderSummary(data.summary);
+
+      // Mostra o botao "Mostrar mais" somente se o conteudo for maior que o limite visivel
+      if (body.scrollHeight > body.offsetHeight + 16) {
+        expandBtn.hidden = false;
+      } else {
+        body.classList.remove('collapsed');
+      }
+
+      renderSources(data.sources);
+
+    } catch (_) {
+      loading.hidden = true;
+      section.hidden = true;
+    }
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function() { section.hidden = true; });
+  }
+
+  if (expandBtn) {
+    expandBtn.addEventListener('click', function() {
+      const isOpen = !body.classList.contains('collapsed');
+      if (isOpen) {
+        body.classList.add('collapsed');
+        expandBtn.classList.remove('open');
+        expandLabel.textContent = 'Mostrar mais';
+      } else {
+        body.classList.remove('collapsed');
+        expandBtn.classList.add('open');
+        expandLabel.textContent = 'Mostrar menos';
+      }
+    });
+  }
+
+  if (sourcesToggle) {
+    sourcesToggle.addEventListener('click', function() {
+      const isOpen = !sourcesList.hidden;
+      sourcesList.hidden = isOpen;
+      sourcesToggle.classList.toggle('open', !isOpen);
+      sourcesLabel.textContent = isOpen ? 'Ver fontes usadas' : 'Ocultar fontes';
+    });
+  }
+
+  loadOverview();
 }());

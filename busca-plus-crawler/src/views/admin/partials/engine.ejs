@@ -1,0 +1,664 @@
+﻿<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1"><i class="bi bi-diagram-3 me-2"></i>Motor Unificado</h1>
+    <p class="text-muted mb-0">Fontes buscaveis e itens de conteudo no novo modelo unico.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#exportEngineModal">
+      <i class="bi bi-download me-1"></i>Exportar
+    </button>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openEngineImportModal()">
+      <i class="bi bi-upload me-1"></i>Importar
+    </button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#engineHelpModal" title="Ajuda sobre tipos e estrategias">
+      <i class="bi bi-question-circle"></i>
+    </button>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#sourceModal">
+      <i class="bi bi-plus-lg me-1"></i>Nova fonte
+    </button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body d-flex align-items-center">
+        <div class="icon bg-primary-subtle text-primary me-3"><i class="bi bi-hdd-network"></i></div>
+        <div>
+          <h3 class="mb-0"><%= stats?.sources?.total || 0 %></h3>
+          <small class="text-muted"><%= stats?.sources?.active || 0 %> fontes ativas</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body d-flex align-items-center">
+        <div class="icon bg-info-subtle text-info me-3"><i class="bi bi-collection"></i></div>
+        <div>
+          <h3 class="mb-0"><%= stats?.items?.total || 0 %></h3>
+          <small class="text-muted">itens de conteudo</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body d-flex align-items-center">
+        <div class="icon bg-success-subtle text-success me-3"><i class="bi bi-check2-circle"></i></div>
+        <div>
+          <h3 class="mb-0"><%= stats?.items?.indexed || 0 %></h3>
+          <small class="text-muted">indexados</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card h-100">
+      <div class="card-body d-flex align-items-center">
+        <div class="icon <%= (stats?.items?.errors || 0) > 0 ? 'bg-danger-subtle text-danger' : 'bg-secondary-subtle text-secondary' %> me-3">
+          <i class="bi bi-exclamation-triangle"></i>
+        </div>
+        <div>
+          <h3 class="mb-0"><%= stats?.items?.errors || 0 %></h3>
+          <small class="text-muted"><%= stats?.items?.pending || 0 %> pendentes</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form class="card mb-4" method="GET" action="/admin/engine">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Busca</label>
+        <input class="form-control" name="q" value="<%= data?.filters?.q || '' %>" placeholder="Nome, titulo ou URL">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label d-flex align-items-center gap-1">Fonte <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="modal" data-bs-target="#engineHelpModal" title="Ajuda"><i class="bi bi-question-circle"></i></button></label>
+        <select class="form-select" name="sourceKind">
+          <option value="">Todas</option>
+          <% ['institutional_site','transparency_portal','news_site','official_diary','api','pdf_feed','other'].forEach((kind) => { %>
+            <option value="<%= kind %>" <%= data?.filters?.sourceKind === kind ? 'selected' : '' %>><%= kind %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label d-flex align-items-center gap-1">Item <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="modal" data-bs-target="#engineHelpModal" title="Ajuda"><i class="bi bi-question-circle"></i></button></label>
+        <select class="form-select" name="itemKind">
+          <option value="">Todos</option>
+          <% ['page','news','official_document','pdf','protocol','attachment','listing_item','other'].forEach((kind) => { %>
+            <option value="<%= kind %>" <%= data?.filters?.itemKind === kind ? 'selected' : '' %>><%= kind %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status">
+          <option value="">Todos</option>
+          <% ['pending','indexed','error'].forEach((status) => { %>
+            <option value="<%= status %>" <%= data?.filters?.status === status ? 'selected' : '' %>><%= status %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="row g-4">
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Fontes buscaveis</h2>
+        <span class="badge bg-light text-dark"><%= data?.sources?.length || 0 %> recentes</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Fonte</th>
+              <th>Tipo</th>
+              <th>Estrategia</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!data?.sources?.length) { %>
+              <tr><td colspan="4" class="text-muted text-center py-4">Nenhuma fonte no modelo unificado.</td></tr>
+            <% } %>
+            <% (data?.sources || []).forEach((source) => { %>
+              <tr>
+                <td>
+                  <div class="fw-semibold"><%= source.name %></div>
+                  <small class="text-muted text-break"><%= source.base_url %></small>
+                  <% if (source.schedule) { %>
+                    <div class="mt-1">
+                      <span class="badge bg-warning text-dark" title="Atualizacao automatica ativa">
+                        <i class="bi bi-clock"></i> <%= source.schedule %>
+                      </span>
+                    </div>
+                  <% } %>
+                </td>
+                <td><span class="badge bg-primary-subtle text-primary"><%= source.source_kind %></span></td>
+                <td><span class="badge bg-secondary-subtle text-secondary"><%= source.crawl_strategy %></span></td>
+                <td class="text-end text-nowrap">
+                  <button class="btn btn-sm btn-outline-primary" onclick="runSource(<%= source.id %>)" title="Executar pipeline completo (crawl + indexar)">
+                    <i class="bi bi-play-fill"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-warning" onclick="resumeSourceIndexing(<%= source.id %>)" title="Continuar indexacao dos itens pendentes (sem re-crawl)">
+                    <i class="bi bi-skip-forward-fill"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="editSource(<%= source.id %>)" title="Editar fonte">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <% if (source.schedule) { %>
+                    <button class="btn btn-sm btn-outline-warning" onclick="pauseSourceSchedule(<%= source.id %>)" title="Pausar atualizacao automatica">
+                      <i class="bi bi-pause-fill"></i>
+                    </button>
+                  <% } %>
+                  <button class="btn btn-sm btn-outline-danger" onclick="deleteSource(<%= source.id %>, '<%= source.name.replace(/'/g, "\\'") %>')" title="Excluir fonte">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Itens de conteudo</h2>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-light text-dark"><%= data?.items?.length || 0 %> de <%= stats?.items?.total || 0 %></span>
+          <a href="/admin/engine/content-items" class="btn btn-outline-secondary btn-sm">Ver todos <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+      <div class="table-responsive" style="max-height:560px;overflow:auto;">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Tipo</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!data?.items?.length) { %>
+              <tr><td colspan="4" class="text-muted text-center py-4">Nenhum item de conteudo encontrado.</td></tr>
+            <% } %>
+            <% (data?.items || []).forEach((item) => { %>
+              <tr>
+                <td>
+                  <div class="fw-semibold text-truncate" style="max-width:420px;" title="<%= item.title || '' %>"><%= item.title || '(sem titulo)' %></div>
+                  <small class="text-muted text-truncate d-block" style="max-width:420px;"><%= item.searchableSource?.name || 'Fonte desconhecida' %></small>
+                  <% if (item.file_url) { %>
+                    <a href="<%= item.file_url %>" target="_blank" rel="noopener" class="small text-danger text-decoration-none">
+                      <i class="bi bi-file-earmark-arrow-down"></i> Anexo <%= item.file_extension || '' %>
+                    </a>
+                  <% } else { %>
+                    <a href="<%= item.url %>" target="_blank" rel="noopener" class="small text-muted text-decoration-none text-truncate d-block" style="max-width:420px;">
+                      <i class="bi bi-link-45deg"></i><%= item.url %>
+                    </a>
+                  <% } %>
+                </td>
+                <td><span class="badge bg-info-subtle text-info"><%= item.item_kind %></span></td>
+                <td>
+                  <span class="badge <%= item.status === 'indexed' ? 'bg-success' : item.status === 'error' ? 'bg-danger' : 'bg-warning text-dark' %>">
+                    <%= item.status %>
+                  </span>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="indexItem(<%= item.id %>)" title="Indexar item">
+                    <i class="bi bi-arrow-repeat"></i>
+                  </button>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h2 class="h6 mb-0">Execucoes recentes</h2>
+    <a href="/admin/engine/runs" class="btn btn-outline-secondary btn-sm">Ver historico <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Fonte</th>
+          <th>Status</th>
+          <th>Itens</th>
+          <th>Duracao</th>
+          <th>Inicio</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!data?.runs?.length) { %>
+          <tr><td colspan="5" class="text-muted text-center py-4">Nenhuma execucao registrada.</td></tr>
+        <% } %>
+        <% (data?.runs || []).forEach((run) => { %>
+          <tr>
+            <td><%= run.source?.name || ('Fonte #' + run.source_id) %></td>
+            <td><span class="badge bg-secondary"><%= run.status %></span></td>
+            <td><%= run.items_found || 0 %> encontrados, <%= run.items_indexed || 0 %> indexados, <%= run.items_errored || 0 %> erros</td>
+            <td><%= run.duration_ms ? Math.round(run.duration_ms / 1000) + 's' : '-' %></td>
+            <td><%= run.started_at ? new Date(run.started_at).toLocaleString('pt-BR') : '-' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<div class="modal fade" id="exportEngineModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header border-0 pb-0">
+        <h2 class="modal-title h5 fw-bold"><i class="bi bi-download me-2 text-primary"></i>Exportar Motor Unificado</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body pt-2 pb-4 px-4">
+        <p class="text-muted small mb-3">Selecione o que deseja exportar:</p>
+        <a href="/api/admin/engine/export.csv?mode=sources" class="export-option text-decoration-none"><div class="export-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-collection"></i></div><div><div class="export-title">Somente fontes</div><p class="export-desc">Configura as fontes buscaveis, UF, cidade, estrategia e JSON.</p></div></a>
+        <a href="/api/admin/engine/export.csv?mode=items" class="export-option text-decoration-none"><div class="export-icon bg-success bg-opacity-10 text-success"><i class="bi bi-file-earmark-text"></i></div><div><div class="export-title">Lista de itens</div><p class="export-desc">Itens coletados com metadados e status, sem texto completo.</p></div></a>
+        <a href="/api/admin/engine/export.csv?mode=full" class="export-option text-decoration-none mb-0"><div class="export-icon bg-info bg-opacity-10 text-info"><i class="bi bi-file-earmark-richtext"></i></div><div><div class="export-title">Itens com conteudo completo</div><p class="export-desc">Backup completo com texto e markdown para migracao.</p></div></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="importEngineCsvModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5"><i class="bi bi-upload me-2"></i>Importar Motor Unificado</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+      <div class="modal-body"><div class="row g-3"><div class="col-md-6"><label class="form-label fw-semibold">Conteudo do CSV</label><select class="form-select" id="engineImportType"><option value="sources">Fontes</option><option value="items">Itens / conteudo completo</option></select></div><div class="col-md-6"><label class="form-label fw-semibold">Modo</label><select class="form-select" id="engineImportMode"><option value="merge">Mesclar sem apagar</option><option value="replace">Substituir tudo</option></select></div><div class="col-12"><label class="form-label">Arquivo CSV</label><input type="file" class="form-control" id="engineCsvFile" accept=".csv,text/csv"></div><div class="col-12"><label class="form-label">Ou cole o CSV</label><textarea class="form-control font-monospace" id="engineCsvText" rows="9"></textarea></div></div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" onclick="submitEngineCsvImport()">Importar</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="engineHelpModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5"><i class="bi bi-question-circle me-2"></i>Ajuda do Motor Unificado</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+      <div class="modal-body">
+        <h3 class="h6">Tipos de fonte</h3><dl class="row small"><dt class="col-sm-4">institutional_site</dt><dd class="col-sm-8">Site institucional com paginas comuns, noticias e servicos.</dd><dt class="col-sm-4">transparency_portal</dt><dd class="col-sm-8">Portal de transparencia com documentos oficiais, tabelas e anexos.</dd><dt class="col-sm-4">news_site</dt><dd class="col-sm-8">Site de noticias ou blog com posts frequentes.</dd><dt class="col-sm-4">official_diary</dt><dd class="col-sm-8">Diario oficial, publicacoes legais e atos normativos.</dd><dt class="col-sm-4">api</dt><dd class="col-sm-8">Fonte estruturada via endpoint JSON/XML.</dd><dt class="col-sm-4">pdf_feed</dt><dd class="col-sm-8">Lista ou pasta de PDFs/documentos para extracao.</dd><dt class="col-sm-4">other</dt><dd class="col-sm-8">Use quando a fonte nao se encaixa nas opcoes acima.</dd></dl>
+        <h3 class="h6 mt-4">Estrategias</h3><dl class="row small"><dt class="col-sm-4">web_crawl</dt><dd class="col-sm-8">Navega pelo site seguindo links internos ate o limite definido.</dd><dt class="col-sm-4">listing</dt><dd class="col-sm-8">Le uma listagem/tabela e cria itens para cada linha encontrada.</dd><dt class="col-sm-4">sitemap</dt><dd class="col-sm-8">Usa sitemap XML para descobrir URLs.</dd><dt class="col-sm-4">api</dt><dd class="col-sm-8">Consome dados de uma API configurada.</dd><dt class="col-sm-4">manual_url</dt><dd class="col-sm-8">Processa uma URL ou lista manual sem descoberta ampla.</dd></dl>
+        <h3 class="h6 mt-4">Config JSON</h3>
+        <p class="small text-muted">Configuracao extra em JSON valido. Use aspas duplas nos nomes e textos.</p>
+        <dl class="row small">
+          <dt class="col-sm-4">delay_between_requests</dt><dd class="col-sm-8">Pausa entre acessos em milissegundos. Exemplo: 1500.</dd>
+          <dt class="col-sm-4">max_links_per_page</dt><dd class="col-sm-8">Quantidade maxima de links internos seguidos em cada pagina.</dd>
+          <dt class="col-sm-4">seed_urls</dt><dd class="col-sm-8">Lista de URLs iniciais para comecar a coleta.</dd>
+          <dt class="col-sm-4">adapter</dt><dd class="col-sm-8">Forca um coletor especializado, como cujubim_publicacoes.</dd>
+          <dt class="col-sm-4">max_catalog_pages</dt><dd class="col-sm-8">Limita paginas de catalogo em coletores especializados.</dd>
+          <dt class="col-sm-4">api</dt><dd class="col-sm-8">Mapeamento de campos quando a fonte retorna JSON.</dd>
+        </dl>
+        <div class="small">
+          <div class="fw-semibold mb-1">Modelo inicial para portal de transparencia</div>
+          <pre class="bg-light border rounded p-2 mb-3"><code>{
+  "delay_between_requests": 1500,
+  "max_links_per_page": 80
+}</code></pre>
+          <div class="fw-semibold mb-1">Modelo com URLs iniciais</div>
+          <pre class="bg-light border rounded p-2 mb-0"><code>{
+  "delay_between_requests": 1500,
+  "max_links_per_page": 100,
+  "seed_urls": [
+    "https://exemplo.gov.br/transparencia/publicacoes",
+    "https://exemplo.gov.br/transparencia/licitacoes"
+  ]
+}</code></pre>
+            <div class="fw-semibold mb-1">Modelo para fonte API</div>
+            <pre class="bg-light border rounded p-2"><code>{
+                "delay_between_requests": 1000,
+                "api": {
+                  "items_path": "results",
+                  "url_field": "url",
+                  "title_field": "title",
+                  "description_field": "description",
+                  "date_field": "date",
+                  "document_type_field": "type",
+                  "document_number_field": "number",
+                  "file_url_field": "file_url",
+                  "item_kind": "official_document"
+                }
+              }
+</code></pre>
+          </div>
+        </div>
+        <h3 class="h6 mt-4">Tipos de item</h3><p class="small text-muted mb-0">Item define o conteudo encontrado: pagina, noticia, documento oficial, PDF, protocolo, anexo, linha de listagem ou outro.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="sourceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" id="sourceForm">
+      <input type="hidden" id="sourceEditId" value="">
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="sourceModalTitle">Nova fonte buscavel</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nome</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">URL base</label>
+            <input class="form-control" name="base_url" type="url" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-flex align-items-center gap-1">Tipo de fonte <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="modal" data-bs-target="#engineHelpModal" title="Ajuda"><i class="bi bi-question-circle"></i></button></label>
+            <select class="form-select" name="source_kind">
+              <option value="institutional_site">institutional_site</option>
+              <option value="transparency_portal">transparency_portal</option>
+              <option value="news_site">news_site</option>
+              <option value="official_diary">official_diary</option>
+              <option value="api">api</option>
+              <option value="pdf_feed">pdf_feed</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-flex align-items-center gap-1">Estrategia <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="modal" data-bs-target="#engineHelpModal" title="Ajuda"><i class="bi bi-question-circle"></i></button></label>
+            <select class="form-select" name="crawl_strategy">
+              <option value="web_crawl">web_crawl</option>
+              <option value="listing">listing</option>
+              <option value="sitemap">sitemap</option>
+              <option value="api">api</option>
+              <option value="manual_url">manual_url</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Limite por execucao</label>
+            <input class="form-control" name="max_items" type="number" min="1" placeholder="Sem limite">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">UF</label>
+            <select class="form-select" name="state" id="engineSourceState">
+              <option value="">Nenhuma</option>
+              <% [['AC','Acre'],['AL','Alagoas'],['AP','Amapa'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceara'],['DF','Distrito Federal'],['ES','Espirito Santo'],['GO','Goias'],['MA','Maranhao'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Para'],['PB','Paraiba'],['PR','Parana'],['PE','Pernambuco'],['PI','Piaui'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondonia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','Sao Paulo'],['SE','Sergipe'],['TO','Tocantins']].forEach(([uf, nome]) => { %>
+                <option value="<%= uf %>"><%= uf %> - <%= nome %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Cidade</label>
+            <select class="form-select" name="city" id="engineSourceCity" disabled>
+              <option value="">Selecione uma UF primeiro</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Agenda cron</label>
+            <input class="form-control" name="schedule" placeholder="Opcional">
+          </div>
+          <div class="col-12">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+              <label class="form-label mb-0">Config JSON</label>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Modelos de Config JSON">
+                <button type="button" class="btn btn-outline-secondary" onclick="applyEngineConfigTemplate('basic')">Basico</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="applyEngineConfigTemplate('cujubim')">Cujubim</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="applyEngineConfigTemplate('seed')">Com URLs</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="applyEngineConfigTemplate('api')">API</button>
+              </div>
+            </div>
+            <textarea class="form-control font-monospace" name="config_json" rows="8" placeholder='{"delay_between_requests":1000}'></textarea>
+            <div class="form-text">Abra a ajuda do motor unificado para ver o significado das chaves e exemplos.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const _sourcesMap = <%- JSON.stringify(
+    (data?.sources || []).reduce((acc, s) => {
+      acc[s.id] = { id: s.id, name: s.name, base_url: s.base_url, source_kind: s.source_kind,
+        crawl_strategy: s.crawl_strategy, max_items: s.max_items, state: s.state, city: s.city,
+        schedule: s.schedule, config_json: s.config_json };
+      return acc;
+    }, {})
+  ) %>;
+
+  const engineImportModal = new bootstrap.Modal(document.getElementById('importEngineCsvModal'));
+
+  function openEngineImportModal() {
+    document.getElementById('engineCsvFile').value = '';
+    document.getElementById('engineCsvText').value = '';
+    document.getElementById('engineImportType').value = 'sources';
+    document.getElementById('engineImportMode').value = 'merge';
+    engineImportModal.show();
+  }
+
+  document.getElementById('engineCsvFile')?.addEventListener('change', async (event) => {
+    const [file] = event.target.files || [];
+    if (!file) return;
+    document.getElementById('engineCsvText').value = await file.text();
+  });
+
+  async function submitEngineCsvImport() {
+    const csvText = document.getElementById('engineCsvText').value.trim();
+    if (!csvText) {
+      alert('Selecione ou cole um CSV antes de importar.');
+      return;
+    }
+
+    const importMode = document.getElementById('engineImportMode').value;
+    if (importMode === 'replace' && !confirm('Isso vai apagar os dados do motor unificado antes de importar. Continuar?')) {
+      return;
+    }
+
+    const response = await axios.post('/api/admin/engine/import', {
+      csv_text: csvText,
+      import_type: document.getElementById('engineImportType').value,
+      import_mode: importMode,
+    });
+    engineImportModal.hide();
+    alert(`Importacao concluida: ${response.data.total} processados (${response.data.created} criados, ${response.data.updated} atualizados, ${response.data.skipped || 0} ignorados).`);
+    location.reload();
+  }
+
+  async function populateEngineCities(selectedCity) {
+    const stateSelect = document.getElementById('engineSourceState');
+    const citySelect = document.getElementById('engineSourceCity');
+    const state = stateSelect ? stateSelect.value : '';
+
+    citySelect.disabled = true;
+    if (!state) {
+      citySelect.innerHTML = '<option value="">Selecione uma UF primeiro</option>';
+      return;
+    }
+
+    citySelect.innerHTML = '<option value="">Carregando cidades...</option>';
+    try {
+      const response = await fetch('/api/cities?state=' + encodeURIComponent(state));
+      const cities = await response.json();
+      const items = Array.isArray(cities) ? cities : [];
+      citySelect.innerHTML = '<option value="">Nenhuma</option>';
+      items.forEach((city) => {
+        const option = document.createElement('option');
+        option.value = city;
+        option.textContent = city;
+        if (selectedCity && selectedCity === city) option.selected = true;
+        citySelect.appendChild(option);
+      });
+    } catch (error) {
+      citySelect.innerHTML = '<option value="">Nao foi possivel carregar cidades</option>';
+    } finally {
+      citySelect.disabled = false;
+    }
+  }
+
+  document.getElementById('engineSourceState')?.addEventListener('change', () => populateEngineCities(''));
+
+  const engineConfigTemplates = {
+    basic: {
+      delay_between_requests: 1500,
+      max_links_per_page: 80,
+    },
+    cujubim: {
+      adapter: 'cujubim_publicacoes',
+      delay_between_requests: 800,
+      max_catalog_pages: 1,
+    },
+    seed: {
+      delay_between_requests: 1500,
+      max_links_per_page: 100,
+      seed_urls: [
+        'https://exemplo.gov.br/transparencia/publicacoes',
+        'https://exemplo.gov.br/transparencia/licitacoes',
+      ],
+    },
+    api: {
+      delay_between_requests: 1000,
+      api: {
+        items_path: 'results',
+        url_field: 'url',
+        title_field: 'title',
+        description_field: 'description',
+        date_field: 'date',
+        document_type_field: 'type',
+        document_number_field: 'number',
+        file_url_field: 'file_url',
+        item_kind: 'official_document',
+      },
+    },
+  };
+
+  function applyEngineConfigTemplate(templateName) {
+    const textarea = document.querySelector('#sourceForm [name="config_json"]');
+    const template = engineConfigTemplates[templateName];
+    if (!textarea || !template) return;
+    textarea.value = JSON.stringify(template, null, 2);
+    textarea.focus();
+  }
+
+  const sourceModalEl = document.getElementById('sourceModal');
+  sourceModalEl.addEventListener('show.bs.modal', (event) => {
+    if (event.relatedTarget === sourceModalEl.querySelector('[data-bs-target="#sourceModal"]') || !sourceModalEl._editingSource) {
+      document.getElementById('sourceEditId').value = '';
+      document.getElementById('sourceModalTitle').textContent = 'Nova fonte buscavel';
+      document.getElementById('sourceForm').reset();
+    }
+    sourceModalEl._editingSource = false;
+  });
+
+  function editSource(sourceId) {
+    const source = _sourcesMap[sourceId];
+    if (!source) return;
+
+    const form = document.getElementById('sourceForm');
+    document.getElementById('sourceEditId').value = source.id;
+    document.getElementById('sourceModalTitle').textContent = 'Editar fonte buscavel';
+    sourceModalEl._editingSource = true;
+
+    form.querySelector('[name="name"]').value = source.name || '';
+    form.querySelector('[name="base_url"]').value = source.base_url || '';
+    form.querySelector('[name="source_kind"]').value = source.source_kind || 'institutional_site';
+    form.querySelector('[name="crawl_strategy"]').value = source.crawl_strategy || 'web_crawl';
+    form.querySelector('[name="max_items"]').value = source.max_items || '';
+    form.querySelector('[name="schedule"]').value = source.schedule || '';
+    form.querySelector('[name="config_json"]').value = source.config_json ? JSON.stringify(source.config_json, null, 2) : '';
+
+    const stateSelect = form.querySelector('[name="state"]');
+    stateSelect.value = source.state || '';
+    populateEngineCities(source.city || '');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(sourceModalEl);
+    modal.show();
+  }
+
+  async function deleteSource(sourceId, sourceName) {
+    if (!confirm(`Excluir a fonte "${sourceName}"? Isso tambem remove todos os itens e execucoes vinculados.`)) return;
+    await axios.delete('/api/admin/engine/sources/' + sourceId);
+    location.reload();
+  }
+
+  async function pauseSourceSchedule(sourceId) {
+    if (!confirm('Pausar a atualizacao automatica desta fonte?')) return;
+    await axios.post('/api/admin/engine/sources/' + sourceId + '/pause-schedule');
+    location.reload();
+  }
+
+  document.getElementById('sourceForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = Object.fromEntries(new FormData(form).entries());
+    const editId = document.getElementById('sourceEditId').value;
+
+    formData.is_active = true;
+    formData.max_items = formData.max_items ? Number(formData.max_items) : null;
+    formData.state = formData.state ? formData.state.toUpperCase() : null;
+    formData.city = formData.city || null;
+    formData.schedule = formData.schedule || null;
+
+    if (formData.config_json) {
+      try {
+        formData.config_json = JSON.parse(formData.config_json);
+      } catch {
+        alert('Config JSON invalido.');
+        return;
+      }
+    } else {
+      formData.config_json = {};
+    }
+
+    try {
+      if (editId) {
+        await axios.put('/api/admin/engine/sources/' + editId, formData);
+      } else {
+        await axios.post('/api/admin/engine/sources', formData);
+      }
+      location.reload();
+    } catch (error) {
+      alert('Erro ao salvar fonte: ' + (error.response?.data?.error || error.message));
+    }
+  });
+
+  async function runSource(sourceId) {
+    if (!confirm('Executar pipeline desta fonte?')) return;
+    const response = await axios.post('/api/admin/engine/sources/' + sourceId + '/run', { run_type: 'full' });
+    alert('Pipeline enfileirado: job ' + response.data.jobId);
+    location.reload();
+  }
+
+  async function resumeSourceIndexing(sourceId) {
+    const response = await axios.post('/api/admin/engine/sources/' + sourceId + '/resume-indexing');
+    const queued = response.data.queued || 0;
+    if (queued === 0) {
+      alert('Nenhum item pendente encontrado para esta fonte. Use o botao Executar para iniciar um novo ciclo de coleta.');
+    } else {
+      alert(queued + ' item(s) pendente(s) enfileirado(s) para indexacao.');
+      location.reload();
+    }
+  }
+
+  async function indexItem(itemId) {
+    const response = await axios.post('/api/admin/engine/content-items/' + itemId + '/index');
+    alert(response.data.ok ? 'Item indexado.' : 'Falha ao indexar item.');
+    location.reload();
+  }
+</script>

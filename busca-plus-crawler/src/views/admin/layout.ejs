@@ -210,43 +210,29 @@
   <div class="sidebar-section">Principal</div>
   <ul class="nav flex-column">
     <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'dashboard' ? 'active' : '' %>" href="/admin">
-        <i class="bi bi-speedometer2"></i> Dashboard
+      <a class="nav-link <%= currentPage === 'engine' ? 'active' : '' %>" href="/admin/engine">
+        <i class="bi bi-diagram-3"></i> Motor Unificado
       </a>
     </li>
     <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'sources' ? 'active' : '' %>" href="/admin/sources">
-        <i class="bi bi-globe2"></i> Fontes de Página
+      <a class="nav-link <%= currentPage === 'content-items' ? 'active' : '' %>" href="/admin/engine/content-items">
+        <i class="bi bi-collection"></i> Itens de Conteudo
       </a>
     </li>
     <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'pages' ? 'active' : '' %>" href="/admin/pages">
-        <i class="bi bi-file-earmark-text"></i> Páginas Coletadas
+      <a class="nav-link <%= currentPage === 'engine-runs' ? 'active' : '' %>" href="/admin/engine/runs">
+        <i class="bi bi-clock-history"></i> Execucoes
       </a>
     </li>
-  </ul>
-
-  <div class="sidebar-section">Catálogo</div>
-  <ul class="nav flex-column">
     <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'catalog' ? 'active' : '' %>" href="/admin/catalog">
-        <i class="bi bi-folder2-open"></i> Documentos
+      <a class="nav-link <%= currentPage === 'jobs' ? 'active' : '' %>" href="/admin/jobs">
+        <i class="bi bi-list-task"></i> Jobs antigos
       </a>
     </li>
   </ul>
 
   <div class="sidebar-section">Operações</div>
   <ul class="nav flex-column">
-    <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'jobs' ? 'active' : '' %>" href="/admin/jobs">
-        <i class="bi bi-clock-history"></i> Jobs
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <%= currentPage === 'errors' ? 'active' : '' %>" href="/admin/errors">
-        <i class="bi bi-exclamation-triangle"></i> Erros
-      </a>
-    </li>
     <li class="nav-item">
       <a class="nav-link <%= currentPage === 'searches' ? 'active' : '' %>" href="/admin/searches">
         <i class="bi bi-graph-up"></i> Buscas
@@ -300,11 +286,6 @@
       <i class="bi bi-list fs-5"></i>
     </button>
     <span class="topbar-title"><%= title %></span>
-    <div class="ms-auto d-flex align-items-center gap-2">
-      <button class="btn btn-sm btn-outline-secondary d-none d-md-inline-flex align-items-center gap-1" onclick="reindexAll()">
-        <i class="bi bi-arrow-repeat"></i> Reindexar Tudo
-      </button>
-    </div>
   </header>
 
   <main class="content-area">

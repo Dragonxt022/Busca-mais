@@ -1,10 +1,25 @@
 {
   "enabled": false,
   "provider": "ollama",
-  "summaryMaxCharacters": 2000,
+  "summaryMaxCharacters": 1000,
+  "timeout": 300000,
   "features": {
     "pageSummary": false,
-    "searchReport": false
+    "searchReport": false,
+    "searchOverview": false,
+    "embeddings": false
+  },
+  "searchOverview": {
+    "maxChunks": 8,
+    "cacheMinutes": 240,
+    "minScore": 0.12
+  },
+  "embeddings": {
+    "provider": "ollama",
+    "model": "nomic-embed-text-v2-moe:latest",
+    "chunkCharacters": 1800,
+    "chunkOverlap": 250,
+    "batchLimit": 500
   },
   "google": {
     "enabled": false,
@@ -15,6 +30,6 @@
   "ollama": {
     "enabled": false,
     "baseUrl": "http://127.0.0.1:11434",
-    "model": "gemma4:e2b"
+    "model": "gemma4:e4b"
   }
 }

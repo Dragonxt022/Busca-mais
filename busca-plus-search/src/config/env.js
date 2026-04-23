@@ -26,7 +26,8 @@ module.exports = {
 
   ai: {
     provider: (process.env.AI_PROVIDER || 'ollama').toLowerCase(),
-    summaryMaxCharacters: parseInt(process.env.AI_SUMMARY_MAX_CHARACTERS, 10) || 12000,
+    summaryMaxCharacters: parseInt(process.env.AI_SUMMARY_MAX_CHARACTERS, 10) || 1000,
+    timeout: parseInt(process.env.AI_TIMEOUT, 10) || 300000,
     google: {
       apiKey: process.env.GOOGLE_AI_API_KEY || '',
       model: process.env.GOOGLE_AI_MODEL || 'gemini-2.0-flash',

@@ -1,0 +1,222 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: busca-plus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: busca-plus-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  typesense:
+    image: typesense/typesense:0.24.1
+    container_name: busca-plus-typesense
+    restart: unless-stopped
+    environment:
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      TYPESENSE_ENABLE_CORS: "true"
+    volumes:
+      - typesense_data:/data
+    networks:
+      - busca-plus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  crawler:
+    build:
+      context: ../busca-plus-crawler
+      dockerfile: Dockerfile
+    image: busca-plus-crawler:latest
+    container_name: busca-plus-crawler
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_DIALECT: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      CRAWLER_TIMEOUT: ${CRAWLER_TIMEOUT:-30000}
+      CRAWLER_MAX_DEPTH: ${CRAWLER_MAX_DEPTH:-3}
+      CRAWLER_MAX_PAGES: ${CRAWLER_MAX_PAGES:-100}
+      SCREENSHOTS_DIR: /app/screenshots
+    volumes:
+      - crawler_screenshots:/app/screenshots
+    networks:
+      - busca-plus-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  worker:
+    build:
+      context: ../busca-plus-crawler
+      dockerfile: Dockerfile
+    image: busca-plus-crawler:latest
+    container_name: busca-plus-worker
+    restart: unless-stopped
+    command: ["node", "src/workers/index.js"]
+    environment:
+      NODE_ENV: production
+      DB_DIALECT: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      CRAWLER_TIMEOUT: ${CRAWLER_TIMEOUT:-30000}
+      CRAWLER_MAX_DEPTH: ${CRAWLER_MAX_DEPTH:-3}
+      CRAWLER_MAX_PAGES: ${CRAWLER_MAX_PAGES:-100}
+      SCREENSHOTS_DIR: /app/screenshots
+    volumes:
+      - crawler_screenshots:/app/screenshots
+    networks:
+      - busca-plus-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      typesense:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  search:
+    build:
+      context: ../busca-plus-search
+      dockerfile: Dockerfile
+    image: busca-plus-search:latest
+    container_name: busca-plus-search
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
+      CRAWLER_API_URL: http://crawler:3001
+      CRAWLER_EXTERNAL_URL: ${CRAWLER_EXTERNAL_URL:-http://localhost:3001}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+      GOOGLE_AI_MODEL: ${GOOGLE_AI_MODEL:-gemini-2.0-flash}
+      AI_SUMMARY_MAX_CHARACTERS: ${AI_SUMMARY_MAX_CHARACTERS:-12000}
+    networks:
+      - busca-plus-network
+    depends_on:
+      typesense:
+        condition: service_healthy
+      crawler:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  nginx:
+    image: nginx:alpine
+    container_name: busca-plus-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - busca-plus-network
+    depends_on:
+      - search
+      - crawler
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+networks:
+  busca-plus-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  typesense_data:
+  crawler_screenshots:
+  nginx_logs:

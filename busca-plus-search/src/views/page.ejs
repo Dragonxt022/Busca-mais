@@ -53,6 +53,11 @@
           <% if (leadExcerpt && !isCatalogDocument) { %>
             <p class="page-lead"><%= leadExcerpt %></p>
           <% } %>
+
+          <a href="<%= openUrl %>" target="_blank" rel="noopener noreferrer" class="article-source-link">
+            <span class="material-icons">open_in_new</span>
+            <%= originalLabel %>
+          </a>
         </header>
 
 
@@ -84,25 +89,27 @@
           <div class="reading-header">
             <div>
               <span class="reading-kicker"><%= isCatalogDocument ? 'Documento catalogado' : 'Pagina indexada' %></span>
-              <h2>Previa do conteudo</h2>
+              <h2><%= isCatalogDocument ? 'Conteudo extraido' : 'Previa do conteudo' %></h2>
             </div>
           </div>
-          <div class="reading-preview" data-reading-content="true" id="readingContent">
+          <div class="reading-preview <%= isCatalogDocument ? 'reading-preview-full' : '' %>" data-reading-content="true" id="readingContent">
             <div class="reading-preview-text">
-              <%- contentPreviewHtml %>
+              <%- isCatalogDocument ? formattedContentHtml : contentPreviewHtml %>
             </div>
+            <% if (!isCatalogDocument) { %>
             <div class="reading-preview-fade">
               <a href="<%= openUrl %>" target="_blank" rel="noopener noreferrer" class="original-cta">
                 <span class="material-icons">open_in_new</span>
                 <%= originalLabel %>
               </a>
             </div>
+            <% } %>
           </div>
         </section>
 
         <footer class="page-footer-note">
           <% if (snapshotDate) { %><p>Snapshot processado em <%= snapshotDate %>.</p><% } %>
-          <p>O texto integral e mantido apenas para indexacao e busca. A leitura completa deve ser feita no site da fonte.</p>
+          <p>O texto foi extraido automaticamente para busca e conferencia rapida. O documento original continua disponivel na fonte oficial.</p>
         </footer>
       </article>
     </main>

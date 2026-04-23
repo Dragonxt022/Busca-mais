@@ -25,7 +25,7 @@ async function getAiFeatures() {
     _aiCacheTime = now;
     return data;
   } catch {
-    return { enabled: false, features: { pageSummary: false, searchReport: false } };
+    return { enabled: false, features: { pageSummary: false, searchReport: false, searchOverview: false, embeddings: false } };
   }
 }
 

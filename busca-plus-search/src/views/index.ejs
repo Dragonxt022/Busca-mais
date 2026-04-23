@@ -95,33 +95,7 @@
     <%
       const aiReportEnabled = !aiFeatures || (aiFeatures.enabled !== false && aiFeatures.features && aiFeatures.features.searchReport !== false);
     %>
-    <% if (hasQuery && results && results.length > 0 && aiReportEnabled) { %>
-    <div class="ai-report-section" id="aiReportSection" data-query="<%= query %>">
-      <div class="ai-report-loading" id="aiReportLoading">
-        <div class="ai-report-spinner"></div>
-        <div class="ai-report-text">
-          <span class="ai-report-label">Gerando relatorio com IA</span>
-          <span class="ai-report-sublabel">Analisando os <%= totalHits %> resultados...</span>
-        </div>
-      </div>
-      <div class="ai-report-content" id="aiReportContent" hidden>
-        <div class="ai-report-header">
-          <div class="ai-report-icon">
-            <span class="material-icons">auto_awesome</span>
-          </div>
-          <div class="ai-report-title">
-            <h3>Resumo da Busca</h3>
-            <span class="ai-report-meta" id="aiReportMeta"></span>
-          </div>
-          <button type="button" class="ai-report-close" id="aiReportClose" aria-label="Fechar">
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-        <div class="ai-report-body" id="aiReportBody"></div>
-      </div>
-    </div>
-    <% } %>
-
+    
     <div class="main-content">
       <% if (tab === 'images') { %>
         <div class="results-column results-column-full">
@@ -152,6 +126,49 @@
       <% } else { %>
         <div class="results-column">
           <div class="stats-line"><%= statsLabel %></div>
+          <% if (hasQuery && results && results.length > 0 && aiReportEnabled) { %>
+            <section class="ai-report-section ai-report-inline" id="aiReportSection" data-query="<%= query %>">
+              <div class="ai-report-loading" id="aiReportLoading">
+                <div class="ai-report-spinner"></div>
+                <div class="ai-report-text">
+                  <span class="ai-report-label">Gerando resumo com IA</span>
+                  <span class="ai-report-sublabel">Analisando os <%= totalHits %> resultados...</span>
+                </div>
+              </div>
+
+              <div class="ai-report-content" id="aiReportContent" hidden>
+                <div class="ai-report-header">
+                  <h3 class="ai-report-title">Resumo da busca</h3>
+                </div>
+
+                <div class="ai-report-body" id="aiReportBody">
+                  <!-- resumo gerado pela IA -->
+                </div>
+
+                <div class="ai-report-footer">
+                  <button
+                    type="button"
+                    class="ai-report-toggle"
+                    id="aiReportToggleRefs"
+                    aria-expanded="false"
+                    aria-controls="aiReportReferences"
+                    hidden
+                  >
+                    Ver documentos de referência
+                  </button>
+                </div>
+
+                <div
+                  class="ai-report-references"
+                  id="aiReportReferences"
+                  hidden
+                >
+                  <h4>Documentos de referência</h4>
+                  <div class="ai-report-reference-list" id="aiReportReferenceList"></div>
+                </div>
+              </div>
+            </section>
+          <% } %>
           <% const sponsoredSlots = sponsored ? sponsored.slots : null; %>
           <% if (sponsoredSlots && sponsoredSlots.top && sponsoredSlots.top.length > 0) { %>
             <section class="sponsored-section" aria-label="Resultados patrocinados">
@@ -481,6 +498,56 @@
   <script src="/js/location-ui.js"></script>
   <script src="/js/auth-ui.js"></script>
   <script>
+    function renderAiReport(report) {
+      const loadingEl = document.getElementById('aiReportLoading');
+      const contentEl = document.getElementById('aiReportContent');
+      const bodyEl = document.getElementById('aiReportBody');
+      const refsSectionEl = document.getElementById('aiReportReferences');
+      const refsListEl = document.getElementById('aiReportReferenceList');
+      const toggleBtn = document.getElementById('aiReportToggleRefs');
+
+      if (!contentEl || !bodyEl) return;
+
+      if (loadingEl) loadingEl.hidden = true;
+      contentEl.hidden = false;
+
+      bodyEl.innerHTML = report.summaryHtml || '<p>Nenhum resumo disponível.</p>';
+
+      const references = Array.isArray(report.references) ? report.references : [];
+      if (refsListEl) refsListEl.innerHTML = '';
+
+      if (references.length > 0 && refsListEl && toggleBtn && refsSectionEl) {
+        toggleBtn.hidden = false;
+
+        references.forEach((ref, index) => {
+          const item = document.createElement('div');
+          item.className = 'ai-report-reference-item';
+
+          item.innerHTML = `
+            <a href="${ref.url || '#'}" target="_blank" rel="noopener noreferrer" class="ai-report-reference-link">
+              ${ref.title || `Documento ${index + 1}`}
+            </a>
+            ${ref.sourceName ? `<div class="ai-report-reference-meta">${ref.sourceName}</div>` : ''}
+            ${ref.snippet ? `<p class="ai-report-reference-snippet">${ref.snippet}</p>` : ''}
+          `;
+
+          refsListEl.appendChild(item);
+        });
+
+        toggleBtn.onclick = function () {
+          const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+          toggleBtn.setAttribute('aria-expanded', String(!isExpanded));
+          refsSectionEl.hidden = isExpanded;
+          toggleBtn.textContent = isExpanded
+            ? 'Ver documentos de referência'
+            : 'Ocultar documentos de referência';
+        };
+      } else if (toggleBtn && refsSectionEl) {
+        toggleBtn.hidden = true;
+        refsSectionEl.hidden = true;
+      }
+    }
+
     document.querySelectorAll('a[data-sponsor-id]').forEach(function(link) {
       link.addEventListener('click', function() {
         var id = link.getAttribute('data-sponsor-id');

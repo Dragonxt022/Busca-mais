@@ -7,10 +7,25 @@ const SETTINGS_FILE = path.join(SETTINGS_DIRECTORY, 'ai-settings.json');
 const DEFAULT_SETTINGS = Object.freeze({
   enabled: false,
   provider: 'ollama',
-  summaryMaxCharacters: 12000,
+  summaryMaxCharacters: 1000,
+  timeout: 300000,
   features: {
     pageSummary: false,
     searchReport: false,
+    searchOverview: false,
+    embeddings: false,
+  },
+  searchOverview: {
+    maxChunks: 8,
+    cacheMinutes: 240,
+    minScore: 0.12,
+  },
+  embeddings: {
+    provider: 'ollama',
+    model: 'nomic-embed-text',
+    chunkCharacters: 1800,
+    chunkOverlap: 250,
+    batchLimit: 50,
   },
   google: {
     enabled: false,
@@ -45,6 +60,14 @@ class AiSettingsService {
     return Math.min(Math.max(parsed, min), max);
   }
 
+  parseTimeout(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 30000) {
+      return fallback;
+    }
+    return Math.min(parsed, 600000);
+  }
+
   normalizeSettings(raw = {}) {
     const provider = String(raw.provider || this.defaults.provider || 'ollama').toLowerCase();
 
@@ -57,9 +80,54 @@ class AiSettingsService {
         1000,
         50000
       ),
+      timeout: this.parseTimeout(raw.timeout, this.defaults.timeout),
       features: {
         pageSummary: Boolean(raw.features?.pageSummary),
         searchReport: Boolean(raw.features?.searchReport),
+        searchOverview: Boolean(raw.features?.searchOverview),
+        embeddings: Boolean(raw.features?.embeddings),
+      },
+      searchOverview: {
+        maxChunks: this.parseNumber(
+          raw.searchOverview?.maxChunks,
+          this.defaults.searchOverview.maxChunks,
+          3,
+          20
+        ),
+        cacheMinutes: this.parseNumber(
+          raw.searchOverview?.cacheMinutes,
+          this.defaults.searchOverview.cacheMinutes,
+          0,
+          1440
+        ),
+        minScore: Math.min(
+          Math.max(Number.parseFloat(raw.searchOverview?.minScore ?? this.defaults.searchOverview.minScore), 0),
+          1
+        ),
+      },
+      embeddings: {
+        provider: String(raw.embeddings?.provider || this.defaults.embeddings.provider || 'ollama').toLowerCase() === 'ollama'
+          ? 'ollama'
+          : this.defaults.embeddings.provider,
+        model: String(raw.embeddings?.model ?? this.defaults.embeddings.model ?? '').trim(),
+        chunkCharacters: this.parseNumber(
+          raw.embeddings?.chunkCharacters,
+          this.defaults.embeddings.chunkCharacters,
+          500,
+          6000
+        ),
+        chunkOverlap: this.parseNumber(
+          raw.embeddings?.chunkOverlap,
+          this.defaults.embeddings.chunkOverlap,
+          0,
+          1000
+        ),
+        batchLimit: this.parseNumber(
+          raw.embeddings?.batchLimit,
+          this.defaults.embeddings.batchLimit,
+          1,
+          500
+        ),
       },
       google: {
         enabled: Boolean(raw.google?.enabled),

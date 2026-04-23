@@ -1,11 +1,13 @@
 const { logger } = require('./logger');
 const { discoverQueue, crawlQueue, QUEUE_NAMES } = require('./queue');
-const { Source, Page } = require('../models');
+const { Source, Page, SearchableSource } = require('../models');
+const { pipelineQueue } = require('../workers/pipeline.worker');
 const { Op } = require('sequelize');
 
 class CrawlScheduler {
   constructor() {
     this.scheduledJobs = new Map();
+    this.scheduledEngineJobs = new Map();
   }
 
   async start() {
@@ -37,10 +39,88 @@ class CrawlScheduler {
         await this.scheduleSource(source);
       }
 
+      await this.syncEngineScheduledJobs();
+
       logger.info(`Scheduler synced: ${sources.length} scheduled sources`);
     } catch (error) {
       logger.error('Scheduler sync error:', error.message);
     }
+  }
+
+  async syncEngineScheduledJobs() {
+    const sources = await SearchableSource.findAll({
+      where: {
+        is_active: true,
+        schedule: {
+          [Op.ne]: null,
+        },
+      },
+    });
+
+    const currentKeys = new Set(sources.map((source) => `engine-source-${source.id}`));
+
+    for (const key of this.scheduledEngineJobs.keys()) {
+      if (!currentKeys.has(key)) {
+        await this.removeEngineScheduledJob(key);
+      }
+    }
+
+    for (const source of sources) {
+      await this.scheduleEngineSource(source);
+    }
+
+    logger.info(`Engine scheduler synced: ${sources.length} scheduled sources`);
+  }
+
+  async scheduleEngineSource(source) {
+    const key = `engine-source-${source.id}`;
+    const jobKey = `scheduled-engine-${source.id}`;
+    const existingJobs = await pipelineQueue.getRepeatableJobs();
+    const existingJob = existingJobs.find((job) => job.key.includes(jobKey));
+
+    if (existingJob) {
+      if (existingJob.pattern !== source.schedule) {
+        await pipelineQueue.removeRepeatableByKey(existingJob.key);
+        await this.createEngineRepeatableJob(source, jobKey);
+        logger.info(`Updated engine schedule for source ${source.id}: ${source.schedule}`);
+      }
+    } else {
+      await this.createEngineRepeatableJob(source, jobKey);
+      logger.info(`Created engine schedule for source ${source.id}: ${source.schedule}`);
+    }
+
+    this.scheduledEngineJobs.set(key, jobKey);
+  }
+
+  async createEngineRepeatableJob(source, jobKey) {
+    await pipelineQueue.add(
+      'run_source',
+      {
+        type: 'run_source',
+        sourceId: source.id,
+        runType: 'incremental',
+      },
+      {
+        jobId: jobKey,
+        repeat: {
+          cron: source.schedule,
+        },
+      }
+    );
+  }
+
+  async removeEngineScheduledJob(key) {
+    const jobKey = this.scheduledEngineJobs.get(key);
+    if (!jobKey) return;
+
+    const repeatableJobs = await pipelineQueue.getRepeatableJobs();
+    for (const job of repeatableJobs) {
+      if (job.key.includes(jobKey)) {
+        await pipelineQueue.removeRepeatableByKey(job.key);
+      }
+    }
+
+    this.scheduledEngineJobs.delete(key);
   }
 
   async scheduleSource(source) {

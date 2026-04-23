@@ -8,7 +8,16 @@ const emailSettingsService = require('../../../services/email-settings.service')
 const { hashPassword, sanitizeUser } = require('../../../services/auth.service');
 const { parseBoolean, parseCsv, parseNullableInt, serializeCsv } = require('../../../utils/csv');
 
-const { Page, Source, CrawlJob, SearchLog, User } = models;
+const { Page, Source, CrawlJob, SearchLog, User, SearchableSource, ContentItem, PipelineRun } = models;
+
+router.use((req, res, next) => {
+  const legacyPaths = ['/sources', '/pages', '/errors'];
+  if (req.path === '/') return res.redirect('/admin/engine');
+  if (legacyPaths.some((path) => req.path === path || req.path.startsWith(`${path}/`))) {
+    return res.redirect('/admin/engine');
+  }
+  return next();
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -119,6 +128,184 @@ router.get('/sources', async (req, res) => {
     });
   } catch (error) {
     res.status(500).send('Erro ao carregar fontes: ' + error.message);
+  }
+});
+
+router.get('/engine/content-items', async (req, res) => {
+  try {
+    const { page = 1, limit = 25, itemKind, status, sourceId, q } = req.query;
+    const where = {};
+
+    const validItemKinds = ['page', 'news', 'official_document', 'pdf', 'protocol', 'attachment', 'listing_item', 'other'];
+    if (itemKind && validItemKinds.includes(itemKind)) where.item_kind = itemKind;
+    if (status) where.status = status;
+    if (sourceId) where.source_id = parseInt(sourceId);
+    if (q) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${q}%` } },
+        { url: { [Op.iLike]: `%${q}%` } },
+        { description: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const [{ count, rows: items }, sources] = await Promise.all([
+      ContentItem.findAndCountAll({
+        where,
+        limit: limitNum,
+        offset,
+        order: [['last_crawled_at', 'DESC'], ['created_at', 'DESC']],
+        include: [{ model: SearchableSource, as: 'searchableSource', attributes: ['id', 'name'] }],
+      }),
+      SearchableSource.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] }),
+    ]);
+
+    res.render('admin/layout', {
+      title: 'Itens de Conteudo',
+      currentPage: 'content-items',
+      partial: 'content-items',
+      data: {
+        items,
+        sources,
+        total: count,
+        page: pageNum,
+        pages: Math.ceil(count / limitNum),
+        limit: limitNum,
+        filters: { itemKind, status, sourceId, q },
+      },
+      stats: null,
+      pagination: { page: pageNum, ...req.query },
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar itens de conteudo: ' + error.message);
+  }
+});
+
+router.get('/engine/runs', async (req, res) => {
+  try {
+    const { page = 1, limit = 25, status, sourceId } = req.query;
+    const where = {};
+
+    if (status) where.status = status;
+    if (sourceId) where.source_id = parseInt(sourceId, 10);
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const [{ count, rows: runs }, sources] = await Promise.all([
+      PipelineRun.findAndCountAll({
+        where,
+        limit: limitNum,
+        offset,
+        order: [['created_at', 'DESC']],
+        include: [{ model: SearchableSource, as: 'source', attributes: ['id', 'name'] }],
+      }),
+      SearchableSource.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] }),
+    ]);
+
+    res.render('admin/layout', {
+      title: 'Execucoes do Motor',
+      currentPage: 'engine-runs',
+      partial: 'engine-runs',
+      data: {
+        runs,
+        sources,
+        total: count,
+        page: pageNum,
+        pages: Math.ceil(count / limitNum),
+        limit: limitNum,
+        filters: { status, sourceId },
+      },
+      stats: null,
+      pagination: { page: pageNum, ...req.query },
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar execucoes do motor: ' + error.message);
+  }
+});
+
+router.get('/engine', async (req, res) => {
+  try {
+    const { sourceKind, itemKind, status, q } = req.query;
+    const sourceWhere = {};
+    const itemWhere = {};
+
+    const validItemKinds = ['page', 'news', 'official_document', 'pdf', 'protocol', 'attachment', 'listing_item', 'other'];
+    if (sourceKind) sourceWhere.source_kind = sourceKind;
+    if (itemKind && validItemKinds.includes(itemKind)) itemWhere.item_kind = itemKind;
+    if (status) itemWhere.status = status;
+    if (q) {
+      sourceWhere.name = { [Op.iLike]: `%${q}%` };
+      itemWhere[Op.or] = [
+        { title: { [Op.iLike]: `%${q}%` } },
+        { url: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+
+    const [
+      totalSources,
+      activeSources,
+      totalItems,
+      indexedItems,
+      pendingItems,
+      errorItems,
+      sources,
+      items,
+      runs,
+      byKind,
+    ] = await Promise.all([
+      SearchableSource.count(),
+      SearchableSource.count({ where: { is_active: true } }),
+      ContentItem.count(),
+      ContentItem.count({ where: { status: 'indexed' } }),
+      ContentItem.count({ where: { status: { [Op.ne]: 'indexed' } } }),
+      ContentItem.count({ where: { status: 'error' } }),
+      SearchableSource.findAll({
+        where: sourceWhere,
+        limit: 30,
+        order: [['created_at', 'DESC']],
+      }),
+      ContentItem.findAll({
+        where: itemWhere,
+        limit: 15,
+        order: [['last_crawled_at', 'DESC'], ['created_at', 'DESC']],
+        include: [{ model: SearchableSource, as: 'searchableSource', attributes: ['id', 'name'] }],
+      }),
+      PipelineRun.findAll({
+        limit: 15,
+        order: [['created_at', 'DESC']],
+        include: [{ model: SearchableSource, as: 'source' }],
+      }),
+      ContentItem.findAll({
+        attributes: ['item_kind', [models.sequelize.fn('COUNT', models.sequelize.col('id')), 'count']],
+        group: ['item_kind'],
+        raw: true,
+      }),
+    ]);
+
+    res.render('admin/layout', {
+      title: 'Motor Unificado',
+      currentPage: 'engine',
+      partial: 'engine',
+      data: { sources, items, runs, filters: { sourceKind, itemKind, status, q } },
+      stats: {
+        sources: { total: totalSources, active: activeSources },
+        items: {
+          total: totalItems,
+          indexed: indexedItems,
+          pending: pendingItems,
+          errors: errorItems,
+        },
+        byKind,
+      },
+      pagination: null,
+    });
+  } catch (error) {
+    res.status(500).send('Erro ao carregar motor unificado: ' + error.message);
   }
 });
 
@@ -423,7 +610,7 @@ router.get('/jobs', async (req, res) => {
       partial: 'jobs',
       data: { data: rows, total: count, page: parseInt(page), pages: Math.ceil(count / limit) },
       stats: null,
-      pagination: { page: parseInt(page) }
+      pagination: { page: parseInt(page), status }
     });
   } catch (error) {
     res.status(500).send('Erro ao carregar jobs: ' + error.message);

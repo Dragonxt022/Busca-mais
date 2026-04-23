@@ -5,7 +5,7 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const mammoth = require('mammoth');
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const { createCanvas } = require('@napi-rs/canvas');
 const Tesseract = require('tesseract.js');
@@ -245,7 +245,25 @@ class CatalogDocumentContentService {
     let pdfParseError;
 
     try {
-      data = await pdfParse(buffer);
+      if (typeof pdfParseModule === 'function') {
+        data = await pdfParseModule(buffer);
+      } else if (typeof pdfParseModule.PDFParse === 'function') {
+        const parser = new pdfParseModule.PDFParse({ data: buffer });
+        try {
+          const textResult = await parser.getText();
+          const infoResult = await parser.getInfo().catch(() => ({}));
+          data = {
+            text: textResult.text || '',
+            info: infoResult.info || {},
+            numpages: infoResult.total || 0,
+            numrender: infoResult.total || 0,
+          };
+        } finally {
+          await parser.destroy().catch(() => {});
+        }
+      } else {
+        throw new Error('Biblioteca pdf-parse nao possui API de extracao conhecida');
+      }
     } catch (err) {
       pdfParseError = err;
     }
@@ -392,8 +410,8 @@ class CatalogDocumentContentService {
     const response = await axios.get(downloadUrl, {
       responseType: 'arraybuffer',
       timeout: this.requestTimeoutMs,
-      maxContentLength: 20 * 1024 * 1024,
-      maxBodyLength: 20 * 1024 * 1024,
+      maxContentLength: 100 * 1024 * 1024,
+      maxBodyLength: 100 * 1024 * 1024,
       headers: {
         'User-Agent': 'BuscaPlusCatalogIndexer/1.0',
       },

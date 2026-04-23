@@ -1,0 +1,185 @@
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <nav aria-label="breadcrumb" class="mb-1">
+      <ol class="breadcrumb mb-0" style="font-size:0.8rem;">
+        <li class="breadcrumb-item"><a href="/admin/engine" class="text-decoration-none">Motor Unificado</a></li>
+        <li class="breadcrumb-item active">Execucoes</li>
+      </ol>
+    </nav>
+    <h1 class="h3 mb-1"><i class="bi bi-clock-history me-2"></i>Execucoes do Motor</h1>
+    <p class="text-muted mb-0"><%= data?.total || 0 %> execucoes registradas</p>
+  </div>
+  <button class="btn btn-outline-danger btn-sm" onclick="cleanFinishedRuns()">
+    <i class="bi bi-trash me-1"></i>Limpar finalizadas
+  </button>
+</div>
+
+<form class="card mb-4" method="GET" action="/admin/engine/runs">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label">Fonte</label>
+        <select class="form-select" name="sourceId">
+          <option value="">Todas</option>
+          <% (data?.sources || []).forEach((source) => { %>
+            <option value="<%= source.id %>" <%= String(data?.filters?.sourceId) === String(source.id) ? 'selected' : '' %>><%= source.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status">
+          <option value="">Todos</option>
+          <% ['pending','running','completed','failed','cancelled'].forEach((status) => { %>
+            <option value="<%= status %>" <%= data?.filters?.status === status ? 'selected' : '' %>><%= status %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Por pagina</label>
+        <select class="form-select" name="limit">
+          <% [25,50,100].forEach((limit) => { %>
+            <option value="<%= limit %>" <%= Number(data?.limit || 25) === limit ? 'selected' : '' %>><%= limit %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fonte</th>
+          <th>Tipo</th>
+          <th>Status</th>
+          <th>Itens</th>
+          <th>Periodo</th>
+          <th>Mensagem</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!data?.runs?.length) { %>
+          <tr><td colspan="8" class="text-muted text-center py-5">Nenhuma execucao encontrada com os filtros atuais.</td></tr>
+        <% } %>
+        <% (data?.runs || []).forEach((run) => { %>
+          <tr id="engine-run-<%= run.id %>">
+            <td><small class="text-muted">#<%= run.id %></small></td>
+            <td>
+              <div class="fw-semibold"><%= run.source?.name || ('Fonte #' + run.source_id) %></div>
+              <small class="text-muted">source_id <%= run.source_id %></small>
+            </td>
+            <td><span class="badge bg-secondary-subtle text-secondary"><%= run.run_type %></span></td>
+            <td>
+              <span class="badge <%= run.status === 'completed' ? 'bg-success' : run.status === 'failed' ? 'bg-danger' : run.status === 'running' ? 'bg-primary' : run.status === 'cancelled' ? 'bg-secondary' : 'bg-warning text-dark' %>">
+                <%= run.status %>
+              </span>
+            </td>
+            <td class="text-nowrap">
+              <small>
+                <span class="text-primary"><%= run.items_found || 0 %></span> encontrados
+                <span class="text-success ms-2">+<%= run.items_created || 0 %></span>
+                <span class="text-info ms-2">~<%= run.items_updated || 0 %></span>
+              </small>
+              <% if (run.items_errored > 0) { %>
+                <small class="text-danger d-block"><%= run.items_errored %> erros</small>
+              <% } %>
+            </td>
+            <td class="text-nowrap">
+              <small class="text-muted d-block"><%= run.started_at ? new Date(run.started_at).toLocaleString('pt-BR') : '-' %></small>
+              <small class="text-muted d-block"><%= run.finished_at ? new Date(run.finished_at).toLocaleString('pt-BR') : 'em aberto' %></small>
+            </td>
+            <td>
+              <% if (run.error_message) { %>
+                <small class="text-danger" style="max-width:260px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<%= run.error_message %>"><%= run.error_message %></small>
+              <% } else { %>
+                <small class="text-muted">-</small>
+              <% } %>
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <% if (run.status === 'pending' || run.status === 'running') { %>
+                  <button class="btn btn-outline-warning" onclick="cancelEngineRun(<%= run.id %>)" title="Cancelar">
+                    <i class="bi bi-x-circle"></i>
+                  </button>
+                <% } %>
+                <% if (run.status !== 'running') { %>
+                  <button class="btn btn-outline-danger" onclick="deleteEngineRun(<%= run.id %>)" title="Excluir">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (data?.pages > 1) { %>
+  <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
+    <small class="text-muted">
+      Pagina <%= data.page %> de <%= data.pages %> - <%= data.total %> execucoes
+    </small>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item <%= data.page <= 1 ? 'disabled' : '' %>">
+          <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, limit: data.limit, page: data.page - 1 }).toString() %>">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        </li>
+        <% for (let p = Math.max(1, data.page - 2); p <= Math.min(data.pages, data.page + 2); p++) { %>
+          <li class="page-item <%= p === data.page ? 'active' : '' %>">
+            <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, limit: data.limit, page: p }).toString() %>"><%= p %></a>
+          </li>
+        <% } %>
+        <li class="page-item <%= data.page >= data.pages ? 'disabled' : '' %>">
+          <a class="page-link" href="?<%= new URLSearchParams({ ...data.filters, limit: data.limit, page: data.page + 1 }).toString() %>">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  <% } %>
+</div>
+
+<script>
+  async function cancelEngineRun(runId) {
+    if (!confirm('Cancelar esta execucao?')) return;
+    try {
+      await axios.post('/api/admin/engine/runs/' + runId + '/cancel');
+      location.reload();
+    } catch (error) {
+      alert(error.response?.data?.error || error.message);
+    }
+  }
+
+  async function deleteEngineRun(runId) {
+    if (!confirm('Excluir esta execucao do historico?')) return;
+    try {
+      await axios.delete('/api/admin/engine/runs/' + runId);
+      document.getElementById('engine-run-' + runId)?.remove();
+    } catch (error) {
+      alert(error.response?.data?.error || error.message);
+    }
+  }
+
+  async function cleanFinishedRuns() {
+    if (!confirm('Remover execucoes concluidas, falhas e canceladas?')) return;
+    try {
+      const response = await axios.post('/api/admin/engine/runs/clean-finished');
+      alert((response.data.deleted || 0) + ' execucoes removidas');
+      location.reload();
+    } catch (error) {
+      alert(error.response?.data?.error || error.message);
+    }
+  }
+</script>

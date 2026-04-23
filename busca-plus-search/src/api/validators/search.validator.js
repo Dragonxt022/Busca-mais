@@ -31,7 +31,7 @@ const validateSearch = (query) => {
 const validatePageId = (id) => {
   const normalized = String(id || '').trim();
 
-  if (!normalized || !/^(\d+|catalog-\d+)$/i.test(normalized)) {
+  if (!normalized || !/^(\d+|catalog-\d+|ci-\d+)$/i.test(normalized)) {
     throw errorTypes.NOT_FOUND('Pagina');
   }
 

@@ -64,4 +64,18 @@ router.get('/api/cities', async (req, res) => {
   }
 });
 
+router.get('/api/ai-overview', async (req, res) => {
+  try {
+    const { q, sourceId, state, city } = req.query;
+    const { data } = await axios.get(`${config.crawler.apiUrl}/api/ai/search-overview`, {
+      params: { q, sourceId, state, city },
+      timeout: 90000,
+    });
+    res.json(data);
+  } catch (error) {
+    const status = error.response?.status || 400;
+    res.status(status).json({ error: error.response?.data?.error || error.message || 'Falha ao gerar visao geral.' });
+  }
+});
+
 module.exports = router;

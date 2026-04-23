@@ -1,24 +1,23 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
   <div>
     <h1 class="h3 mb-2">Ferramentas de IA</h1>
-    <p class="text-muted mb-0">Gerencie os provedores e funcionalidades de IA consumidos pela aplica&ccedil;&atilde;o de busca. Tudo come&ccedil;a desativado.</p>
+    <p class="text-muted mb-0">Gerencie os provedores, embeddings e funcionalidades de IA consumidos pela aplicacao de busca.</p>
   </div>
   <span class="badge rounded-pill text-bg-secondary px-3 py-2" id="aiStatusBadge">Carregando...</span>
 </div>
 
 <form id="aiSettingsForm" class="d-grid gap-4">
+  <!-- Controle geral -->
   <div class="card shadow-sm border-0">
     <div class="card-body">
       <div class="mb-3">
         <h2 class="h5 mb-1">Controle geral</h2>
         <p class="text-muted mb-0">Define se qualquer recurso de IA pode ser executado.</p>
       </div>
-
       <div class="form-check form-switch mb-4">
         <input class="form-check-input" type="checkbox" id="enabled" name="enabled">
         <label class="form-check-label" for="enabled">Ativar recursos de IA</label>
       </div>
-
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label" for="provider">Provedor principal</label>
@@ -35,36 +34,133 @@
     </div>
   </div>
 
+  <!-- Funcionalidades -->
   <div class="card shadow-sm border-0">
     <div class="card-body">
       <div class="mb-3">
         <h2 class="h5 mb-1">Funcionalidades</h2>
-        <p class="text-muted mb-0">Ative individualmente o que ficar liberado para o front.</p>
+        <p class="text-muted mb-0">Ative individualmente o que ficara disponivel no front.</p>
       </div>
-
-      <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" id="featurePageSummary" name="featurePageSummary">
-        <label class="form-check-label" for="featurePageSummary">Resumo de pagina com IA</label>
-      </div>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="featureSearchReport" name="featureSearchReport">
-        <label class="form-check-label" for="featureSearchReport">Relatorio de busca com IA</label>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="featurePageSummary" name="featurePageSummary">
+            <label class="form-check-label" for="featurePageSummary">Resumo de pagina com IA</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="featureSearchReport" name="featureSearchReport">
+            <label class="form-check-label" for="featureSearchReport">Relatorio de busca com IA</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="featureEmbeddings" name="featureEmbeddings">
+            <label class="form-check-label" for="featureEmbeddings">Gerar embeddings dos documentos</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="featureSearchOverview" name="featureSearchOverview">
+            <label class="form-check-label" for="featureSearchOverview">Visao geral semantica no topo da busca</label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- Ollama -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Ollama</h2>
+        <p class="text-muted mb-0">Provedor local. Usado para geracao de texto e embeddings.</p>
+      </div>
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" id="ollamaEnabled" name="ollamaEnabled">
+        <label class="form-check-label" for="ollamaEnabled">Habilitar Ollama</label>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="ollamaBaseUrl">Base URL</label>
+          <input class="form-control" type="url" id="ollamaBaseUrl" name="ollamaBaseUrl" placeholder="http://127.0.0.1:11434">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="ollamaModel">Modelo de resposta / resumo</label>
+          <input class="form-control" type="text" id="ollamaModel" name="ollamaModel" placeholder="gemma4:e4b">
+          <div class="form-text">Exemplo: gemma4:e4b, llama3.1:8b, qwen2.5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Embeddings -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Embeddings</h2>
+        <p class="text-muted mb-0">Configuracoes para geracao de vetores semanticos dos documentos. Requer Ollama habilitado.</p>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="embeddingsModel">Modelo de embedding</label>
+          <input class="form-control" type="text" id="embeddingsModel" name="embeddingsModel" placeholder="nomic-embed-text-v2-moe">
+          <div class="form-text">Exemplo: nomic-embed-text-v2-moe, nomic-embed-text, mxbai-embed-large</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="embeddingsBatchLimit">Limite de itens por lote</label>
+          <input class="form-control" type="number" id="embeddingsBatchLimit" name="embeddingsBatchLimit" min="1" max="500">
+          <div class="form-text">Quantos documentos processar por vez (1-500)</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="embeddingsChunkCharacters">Tamanho do trecho (caracteres)</label>
+          <input class="form-control" type="number" id="embeddingsChunkCharacters" name="embeddingsChunkCharacters" min="500" max="6000" step="100">
+          <div class="form-text">Tamanho de cada pedaco de texto (500-6000)</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="embeddingsChunkOverlap">Sobreposicao entre trechos (caracteres)</label>
+          <input class="form-control" type="number" id="embeddingsChunkOverlap" name="embeddingsChunkOverlap" min="0" max="1000" step="50">
+          <div class="form-text">Contexto compartilhado entre trechos consecutivos (0-1000)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Overview -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="mb-3">
+        <h2 class="h5 mb-1">Visao geral da busca</h2>
+        <p class="text-muted mb-0">Resumo semantico que aparece no topo dos resultados, gerado a partir dos trechos mais relevantes.</p>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label" for="searchOverviewMaxChunks">Trechos usados no resumo</label>
+          <input class="form-control" type="number" id="searchOverviewMaxChunks" name="searchOverviewMaxChunks" min="3" max="20">
+          <div class="form-text">Quantos trechos a IA le para gerar o resumo (3-20)</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="searchOverviewCacheMinutes">Cache do resumo (minutos)</label>
+          <input class="form-control" type="number" id="searchOverviewCacheMinutes" name="searchOverviewCacheMinutes" min="0" max="1440">
+          <div class="form-text">0 = sem cache; 240 = 4 horas (max 1440 = 1 dia)</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="searchOverviewMinScore">Score minimo de similaridade</label>
+          <input class="form-control" type="number" id="searchOverviewMinScore" name="searchOverviewMinScore" min="0" max="1" step="0.01">
+          <div class="form-text">Entre 0 e 1. Trechos abaixo disso sao ignorados (recomendado: 0.10-0.15)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google AI -->
   <div class="card shadow-sm border-0">
     <div class="card-body">
       <div class="mb-3">
         <h2 class="h5 mb-1">Google AI</h2>
-        <p class="text-muted mb-0">Configuracao completa do provedor Google.</p>
+        <p class="text-muted mb-0">Configuracao completa do provedor Google Gemini.</p>
       </div>
-
       <div class="form-check form-switch mb-4">
         <input class="form-check-input" type="checkbox" id="googleEnabled" name="googleEnabled">
         <label class="form-check-label" for="googleEnabled">Habilitar Google AI</label>
       </div>
-
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label" for="googleApiKey">API Key</label>
@@ -82,127 +178,279 @@
     </div>
   </div>
 
-  <div class="card shadow-sm border-0">
-    <div class="card-body">
-      <div class="mb-3">
-        <h2 class="h5 mb-1">Ollama</h2>
-        <p class="text-muted mb-0">Configuracao completa do provedor local.</p>
-      </div>
-
-      <div class="form-check form-switch mb-4">
-        <input class="form-check-input" type="checkbox" id="ollamaEnabled" name="ollamaEnabled">
-        <label class="form-check-label" for="ollamaEnabled">Habilitar Ollama</label>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label" for="ollamaBaseUrl">Base URL</label>
-          <input class="form-control" type="url" id="ollamaBaseUrl" name="ollamaBaseUrl" placeholder="http://127.0.0.1:11434">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="ollamaModel">Modelo</label>
-          <input class="form-control" type="text" id="ollamaModel" name="ollamaModel" placeholder="llama3.1:8b">
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="d-flex align-items-center gap-3 flex-wrap">
     <button class="btn btn-primary" type="submit">Salvar configuracoes</button>
     <div id="aiSettingsFeedback" class="small text-muted"></div>
   </div>
 </form>
 
-<script>
-  (function aiSettingsAdmin() {
-    const form = document.getElementById('aiSettingsForm');
-    const feedback = document.getElementById('aiSettingsFeedback');
-    const statusBadge = document.getElementById('aiStatusBadge');
+<!-- Painel de Embeddings -->
+<hr class="my-5">
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <h2 class="h4 mb-1">Relatorio de Embeddings</h2>
+    <p class="text-muted mb-0">Estado atual do processamento de vetores semanticos nos documentos indexados.</p>
+  </div>
+  <button class="btn btn-outline-secondary btn-sm" type="button" id="refreshStatsBtn">
+    <i class="bi bi-arrow-clockwise"></i> Atualizar
+  </button>
+</div>
 
-    if (!form) {
+<div id="embeddingStatsPanel" class="row g-3 mb-4">
+  <div class="col-12 text-muted small">Carregando estatisticas...</div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <button class="btn btn-success" type="button" id="processPendingBtn">
+    <i class="bi bi-play-circle"></i> Processar pendentes
+  </button>
+  <button class="btn btn-outline-primary" type="button" id="processForceBtn">
+    <i class="bi bi-arrow-repeat"></i> Reprocessar tudo (forcado)
+  </button>
+  <button class="btn btn-outline-danger" type="button" id="clearCacheBtn">
+    <i class="bi bi-trash"></i> Limpar cache de resumos
+  </button>
+</div>
+
+<div id="embeddingActionFeedback" class="alert d-none mb-4"></div>
+
+<script>
+(function aiSettingsAdmin() {
+  const form = document.getElementById('aiSettingsForm');
+  const feedback = document.getElementById('aiSettingsFeedback');
+  const statusBadge = document.getElementById('aiStatusBadge');
+
+  if (!form) return;
+
+  function setFeedback(message, isError) {
+    feedback.textContent = message || '';
+    feedback.className = isError ? 'small text-danger' : 'small text-success';
+  }
+
+  function setStatus(settings) {
+    if (!settings || !settings.enabled) {
+      statusBadge.className = 'badge rounded-pill text-bg-secondary px-3 py-2';
+      statusBadge.textContent = 'IA desativada';
       return;
     }
+    statusBadge.className = 'badge rounded-pill text-bg-success px-3 py-2';
+    const embLabel = settings.features && settings.features.embeddings ? ' + Embeddings' : '';
+    statusBadge.textContent = 'IA ativa • ' + String(settings.provider || '').toUpperCase() + embLabel;
+  }
 
-    function setFeedback(message, isError) {
-      feedback.textContent = message || '';
-      feedback.className = isError ? 'small text-danger' : 'small text-muted';
+  function fillForm(settings) {
+    form.enabled.checked = Boolean(settings.enabled);
+    form.provider.value = settings.provider || 'ollama';
+    form.summaryMaxCharacters.value = settings.summaryMaxCharacters || 12000;
+
+    const f = settings.features || {};
+    form.featurePageSummary.checked = Boolean(f.pageSummary);
+    form.featureSearchReport.checked = Boolean(f.searchReport);
+    form.featureEmbeddings.checked = Boolean(f.embeddings);
+    form.featureSearchOverview.checked = Boolean(f.searchOverview);
+
+    const emb = settings.embeddings || {};
+    form.embeddingsModel.value = emb.model || 'nomic-embed-text-v2-moe';
+    form.embeddingsBatchLimit.value = emb.batchLimit || 50;
+    form.embeddingsChunkCharacters.value = emb.chunkCharacters || 1800;
+    form.embeddingsChunkOverlap.value = emb.chunkOverlap || 250;
+
+    const ov = settings.searchOverview || {};
+    form.searchOverviewMaxChunks.value = ov.maxChunks || 8;
+    form.searchOverviewCacheMinutes.value = ov.cacheMinutes !== undefined ? ov.cacheMinutes : 240;
+    form.searchOverviewMinScore.value = ov.minScore !== undefined ? ov.minScore : 0.12;
+
+    const g = settings.google || {};
+    form.googleEnabled.checked = Boolean(g.enabled);
+    form.googleApiKey.value = g.apiKey || '';
+    form.googleModel.value = g.model || '';
+    form.googleApiUrl.value = g.apiUrl || '';
+
+    const o = settings.ollama || {};
+    form.ollamaEnabled.checked = Boolean(o.enabled);
+    form.ollamaBaseUrl.value = o.baseUrl || '';
+    form.ollamaModel.value = o.model || '';
+
+    setStatus(settings);
+  }
+
+  function serializeForm() {
+    return {
+      enabled: form.enabled.checked,
+      provider: form.provider.value,
+      summaryMaxCharacters: form.summaryMaxCharacters.value,
+      features: {
+        pageSummary: form.featurePageSummary.checked,
+        searchReport: form.featureSearchReport.checked,
+        embeddings: form.featureEmbeddings.checked,
+        searchOverview: form.featureSearchOverview.checked,
+      },
+      embeddings: {
+        model: form.embeddingsModel.value,
+        batchLimit: form.embeddingsBatchLimit.value,
+        chunkCharacters: form.embeddingsChunkCharacters.value,
+        chunkOverlap: form.embeddingsChunkOverlap.value,
+      },
+      searchOverview: {
+        maxChunks: form.searchOverviewMaxChunks.value,
+        cacheMinutes: form.searchOverviewCacheMinutes.value,
+        minScore: form.searchOverviewMinScore.value,
+      },
+      google: {
+        enabled: form.googleEnabled.checked,
+        apiKey: form.googleApiKey.value,
+        model: form.googleModel.value,
+        apiUrl: form.googleApiUrl.value,
+      },
+      ollama: {
+        enabled: form.ollamaEnabled.checked,
+        baseUrl: form.ollamaBaseUrl.value,
+        model: form.ollamaModel.value,
+      },
+    };
+  }
+
+  async function loadSettings() {
+    setFeedback('Carregando configuracoes...', false);
+    try {
+      const response = await axios.get('/api/admin/ai-settings');
+      fillForm(response.data);
+      setFeedback('', false);
+    } catch (error) {
+      setFeedback(
+        (error.response && error.response.data && error.response.data.error) || error.message || 'Falha ao carregar.',
+        true
+      );
     }
+  }
 
-    function setStatus(settings) {
-      if (!settings || !settings.enabled) {
-        statusBadge.className = 'badge rounded-pill text-bg-secondary px-3 py-2';
-        statusBadge.textContent = 'IA desativada';
-        return;
-      }
-
-      statusBadge.className = 'badge rounded-pill text-bg-success px-3 py-2';
-      statusBadge.textContent = 'IA ativa • ' + String(settings.provider || '').toUpperCase();
+  form.addEventListener('submit', async function onSubmit(event) {
+    event.preventDefault();
+    setFeedback('Salvando...', false);
+    try {
+      const response = await axios.post('/api/admin/ai-settings', serializeForm());
+      fillForm(response.data.settings);
+      setFeedback(response.data.message || 'Configuracoes salvas com sucesso.', false);
+    } catch (error) {
+      setFeedback(
+        (error.response && error.response.data && error.response.data.error) || error.message || 'Falha ao salvar.',
+        true
+      );
     }
+  });
 
-    function fillForm(settings) {
-      form.enabled.checked = Boolean(settings.enabled);
-      form.provider.value = settings.provider || 'ollama';
-      form.summaryMaxCharacters.value = settings.summaryMaxCharacters || 12000;
-      form.featurePageSummary.checked = Boolean(settings.features && settings.features.pageSummary);
-      form.featureSearchReport.checked = Boolean(settings.features && settings.features.searchReport);
-      form.googleEnabled.checked = Boolean(settings.google && settings.google.enabled);
-      form.googleApiKey.value = settings.google && settings.google.apiKey || '';
-      form.googleModel.value = settings.google && settings.google.model || '';
-      form.googleApiUrl.value = settings.google && settings.google.apiUrl || '';
-      form.ollamaEnabled.checked = Boolean(settings.ollama && settings.ollama.enabled);
-      form.ollamaBaseUrl.value = settings.ollama && settings.ollama.baseUrl || '';
-      form.ollamaModel.value = settings.ollama && settings.ollama.model || '';
-      setStatus(settings);
+  loadSettings();
+})();
+
+// Painel de Embeddings
+(function embeddingsPanel() {
+  const statsPanel = document.getElementById('embeddingStatsPanel');
+  const actionFeedback = document.getElementById('embeddingActionFeedback');
+
+  function showAlert(message, type) {
+    actionFeedback.className = 'alert alert-' + type + ' mb-4';
+    actionFeedback.textContent = message;
+  }
+
+  function statCard(label, value, colorClass) {
+    return '<div class="col-6 col-md-3">'
+      + '<div class="card border-0 shadow-sm h-100">'
+      + '<div class="card-body py-3">'
+      + '<div class="text-muted small mb-1">' + label + '</div>'
+      + '<div class="h4 mb-0 ' + (colorClass || '') + '">' + value + '</div>'
+      + '</div></div></div>';
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    try {
+      return new Date(dateStr).toLocaleString('pt-BR');
+    } catch (_) { return dateStr; }
+  }
+
+  async function loadStats() {
+    statsPanel.innerHTML = '<div class="col-12 text-muted small">Carregando...</div>';
+    try {
+      const { data } = await axios.get('/api/admin/ai-embeddings/stats');
+      const pct = data.chunksTotal > 0
+        ? Math.round((data.embedded / data.chunksTotal) * 100)
+        : 0;
+
+      statsPanel.innerHTML =
+        statCard('Total de trechos', data.chunksTotal, '') +
+        statCard('Com embedding', data.embedded, 'text-success') +
+        statCard('Pendentes', data.pending, data.pending > 0 ? 'text-warning' : '') +
+        statCard('Erros', data.errors, data.errors > 0 ? 'text-danger' : '') +
+        statCard('Itens com trechos', data.itemsWithChunks, '') +
+        statCard('Itens indexados', data.itemsIndexed, '') +
+        statCard('Sem trechos ainda', data.itemsWithoutChunks, data.itemsWithoutChunks > 0 ? 'text-warning' : '') +
+        statCard('Cobertura', pct + '%', pct >= 90 ? 'text-success' : pct >= 50 ? 'text-warning' : 'text-danger') +
+        '<div class="col-12"><small class="text-muted">Ultimo processamento: '
+          + formatDate(data.lastProcessedAt)
+          + ' &nbsp;|&nbsp; Modelo configurado: '
+          + (data.settings && data.settings.embeddings && data.settings.embeddings.model ? data.settings.embeddings.model : '—')
+          + '</small></div>';
+    } catch (error) {
+      statsPanel.innerHTML = '<div class="col-12"><div class="alert alert-danger mb-0">'
+        + ((error.response && error.response.data && error.response.data.error) || error.message || 'Falha ao carregar estatisticas.')
+        + '</div></div>';
     }
+  }
 
-    function serializeForm() {
-      return {
-        enabled: form.enabled.checked,
-        provider: form.provider.value,
-        summaryMaxCharacters: form.summaryMaxCharacters.value,
-        features: {
-          pageSummary: form.featurePageSummary.checked,
-          searchReport: form.featureSearchReport.checked,
-        },
-        google: {
-          enabled: form.googleEnabled.checked,
-          apiKey: form.googleApiKey.value,
-          model: form.googleModel.value,
-          apiUrl: form.googleApiUrl.value,
-        },
-        ollama: {
-          enabled: form.ollamaEnabled.checked,
-          baseUrl: form.ollamaBaseUrl.value,
-          model: form.ollamaModel.value,
-        },
-      };
+  async function processEmbeddings(force) {
+    const btn = force
+      ? document.getElementById('processForceBtn')
+      : document.getElementById('processPendingBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
+    showAlert('Processando embeddings, aguarde...', 'info');
+
+    try {
+      const { data } = await axios.post('/api/admin/ai-embeddings/process', { force: Boolean(force) });
+      showAlert(
+        'Concluido: ' + data.processed + ' itens processados, '
+        + data.embedded + ' embeddings gerados, '
+        + data.failed + ' erros.',
+        data.failed > 0 ? 'warning' : 'success'
+      );
+      await loadStats();
+    } catch (error) {
+      showAlert(
+        (error.response && error.response.data && error.response.data.error) || error.message || 'Falha ao processar.',
+        'danger'
+      );
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
     }
+  }
 
-    async function loadSettings() {
-      setFeedback('Carregando configuracoes...', false);
+  async function clearCache() {
+    const btn = document.getElementById('clearCacheBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Limpando...';
 
-      try {
-        const response = await axios.get('/api/admin/ai-settings');
-        fillForm(response.data);
-        setFeedback('', false);
-      } catch (error) {
-        setFeedback(error.response && error.response.data && error.response.data.error || error.message || 'Falha ao carregar configuracoes.', true);
-      }
+    try {
+      const { data } = await axios.post('/api/admin/ai-embeddings/cache/clear');
+      showAlert('Cache de resumos limpo: ' + (data.deleted || 0) + ' entradas removidas.', 'success');
+    } catch (error) {
+      showAlert(
+        (error.response && error.response.data && error.response.data.error) || error.message || 'Falha ao limpar cache.',
+        'danger'
+      );
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
     }
+  }
 
-    form.addEventListener('submit', async function onSubmit(event) {
-      event.preventDefault();
-      setFeedback('Salvando...', false);
+  document.getElementById('refreshStatsBtn').addEventListener('click', loadStats);
+  document.getElementById('processPendingBtn').addEventListener('click', () => processEmbeddings(false));
+  document.getElementById('processForceBtn').addEventListener('click', () => processEmbeddings(true));
+  document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
 
-      try {
-        const response = await axios.post('/api/admin/ai-settings', serializeForm());
-        fillForm(response.data.settings);
-        setFeedback(response.data.message || 'Configuracoes salvas com sucesso.', false);
-      } catch (error) {
-        setFeedback(error.response && error.response.data && error.response.data.error || error.message || 'Falha ao salvar configuracoes.', true);
-      }
-    });
-
-    loadSettings();
-  })();
+  loadStats();
+})();
 </script>

@@ -5,10 +5,6 @@ const morgan = require('morgan');
 const path = require('path');
 
 const { logger } = require('./libs/logger');
-const sourceRoutes = require('./api/routes/source.routes');
-const pageRoutes = require('./api/routes/page.routes');
-const jobRoutes = require('./api/routes/job.routes');
-const adminApiRoutes = require('./api/routes/admin/stats.routes');
 const aiSettingsApiRoutes = require('./api/routes/admin/ai-settings.routes');
 const emailSettingsApiRoutes = require('./api/routes/admin/email-settings.routes');
 const authRoutes = require('./api/routes/auth.routes');
@@ -16,9 +12,10 @@ const searchLogRoutes = require('./api/routes/search-log.routes');
 const adminAuthRoutes = require('./api/routes/admin-auth.routes');
 const publicSettingsRoutes = require('./api/routes/public-settings.routes');
 const adminRoutes = require('./api/routes/admin/index');
-const schedulerRoutes = require('./api/routes/scheduler.routes');
-const adminCatalogRoutes = require('./modules/transparency/routes/admin-catalog-routes');
+const jobRoutes = require('./api/routes/job.routes');
 const sponsorRoutes = require('./api/routes/sponsor.routes');
+const aiRoutes = require('./api/routes/ai.routes');
+const engineRoutes = require('./modules/engine/routes/engine.routes');
 const { attachUser, exposeUserLocals, requireAdmin } = require('./api/middlewares/auth.middleware');
 
 const { errorHandler, notFoundHandler } = require('./api/middlewares/error.middleware');
@@ -54,25 +51,22 @@ app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.use('/api/sources', sourceRoutes);
-app.use('/api/pages', pageRoutes);
-app.use('/api/jobs', jobRoutes);
-app.use('/api/scheduler', schedulerRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/search-logs', searchLogRoutes);
 app.use('/api/public', publicSettingsRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.use(attachUser);
 app.use(exposeUserLocals);
 app.use('/admin', adminAuthRoutes);
 
 app.use('/api/admin', requireAdmin);
-app.use('/api/admin', adminApiRoutes);
 app.use('/api/admin', aiSettingsApiRoutes);
 app.use('/api/admin', emailSettingsApiRoutes);
+app.use('/api/admin/engine', requireAdmin, engineRoutes);
+app.use('/api/jobs', requireAdmin, jobRoutes);
 
 app.use('/admin', requireAdmin);
-app.use('/admin/catalog', adminCatalogRoutes);
 app.use('/', sponsorRoutes);
 app.use('/admin', adminRoutes);
 

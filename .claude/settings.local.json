@@ -10,7 +10,10 @@
       "Bash(cat .sequelizerc)",
       "Bash(node src/scripts/init-db.js)",
       "Bash(npm install *)",
-      "Bash(node --test tests/catalog-document-content.service.test.js)"
+      "Bash(node --test tests/catalog-document-content.service.test.js)",
+      "Bash(grep -E \"\\\\.\\(js\\)$\")",
+      "Bash(node --check src/api/routes/admin/index.js)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const content = fs.readFileSync\\('c:/apps/Busca-mais/busca-plus-crawler/src/views/admin/partials/engine.ejs', 'utf8'\\); console.log\\('Lines:', content.split\\('\\\\n'\\).length, '| OK'\\);\")"
     ]
   }
 }

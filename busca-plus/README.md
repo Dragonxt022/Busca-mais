@@ -161,3 +161,13 @@ npm run seed:sponsors
  
 npx sequelize-cli db:seed:undo --seed seeders/20260418000100-demo-sponsors.js
 ```
+
+## Comandos Sequelaize
+
+```bash
+
+npx sequelize-cli db:migrate:undo:all
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all
+
+```

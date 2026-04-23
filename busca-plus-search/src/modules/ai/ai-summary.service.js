@@ -8,7 +8,7 @@ class AiSummaryService {
     axiosInstance = axios,
     aiConfig = null,
     settingsLoader = null,
-    settingsApiUrl = `${String(config.crawler?.apiUrl || '').replace(/\/$/, '')}/api/admin/ai-settings`,
+    settingsApiUrl = `${String(config.crawler?.apiUrl || '').replace(/\/$/, '')}/api/public/ai-settings`,
   } = {}) {
     this.axios = axiosInstance;
     this.aiConfig = aiConfig;
@@ -20,7 +20,8 @@ class AiSummaryService {
     return {
       enabled: false,
       provider: String(config.ai?.provider || 'ollama').toLowerCase(),
-      summaryMaxCharacters: config.ai?.summaryMaxCharacters || 12000,
+      summaryMaxCharacters: config.ai?.summaryMaxCharacters || 1000,
+      timeout: config.ai?.timeout || 300000,
       features: {
         pageSummary: false,
         searchReport: false,
@@ -47,6 +48,7 @@ class AiSummaryService {
       enabled: Boolean(raw.enabled),
       provider: ['google', 'ollama'].includes(provider) ? provider : fallback.provider,
       summaryMaxCharacters: Number.parseInt(raw.summaryMaxCharacters, 10) || fallback.summaryMaxCharacters,
+      timeout: Number.parseInt(raw.timeout, 10) || fallback.timeout || 300000,
       features: {
         pageSummary: Boolean(raw.features?.pageSummary),
         searchReport: Boolean(raw.features?.searchReport),
@@ -173,11 +175,8 @@ class AiSummaryService {
   }
 
   async summarizeWithGoogle(prompt, runtimeConfig) {
-    const { apiKey, model, apiUrl, enabled } = runtimeConfig.google || {};
-
-    if (!enabled) {
-      throw errorTypes.VALIDATION('O provedor Google AI esta desativado no administrador.');
-    }
+    const { apiKey, model, apiUrl } = runtimeConfig.google || {};
+    const timeout = runtimeConfig?.timeout || 300000;
 
     if (!apiKey) {
       throw errorTypes.VALIDATION('GOOGLE_AI_API_KEY nao configurada');
@@ -197,12 +196,12 @@ class AiSummaryService {
           generationConfig: {
             temperature: 0.3,
             topP: 0.8,
-            maxOutputTokens: 700,
+            maxOutputTokens: 300,
           },
         },
         {
           params: { key: apiKey },
-          timeout: 45000,
+          timeout,
         }
       );
     } catch (error) {
@@ -220,10 +219,15 @@ class AiSummaryService {
   }
 
   async summarizeWithOllama(prompt, runtimeConfig) {
-    const { baseUrl, model, enabled } = runtimeConfig.ollama || {};
+    const { baseUrl, model } = runtimeConfig.ollama || {};
+    const timeout = runtimeConfig?.timeout || 300000;
 
-    if (!enabled) {
-      throw errorTypes.VALIDATION('O provedor Ollama esta desativado no administrador.');
+    if (!baseUrl) {
+      throw errorTypes.VALIDATION('URL do Ollama nao configurada no administrador.');
+    }
+
+    if (!model) {
+      throw errorTypes.VALIDATION('Modelo Ollama nao configurado no administrador.');
     }
 
     let response;
@@ -237,11 +241,11 @@ class AiSummaryService {
           stream: false,
           options: {
             temperature: 0.3,
-            num_predict: 400,
+            num_predict: 350,
           },
         },
         {
-          timeout: 120000,
+          timeout,
         }
       );
     } catch (error) {
@@ -265,7 +269,7 @@ class AiSummaryService {
 
   async summarizeDocument(document, options = {}) {
     const runtimeConfig = await this.getConfig();
-    const maxLength = runtimeConfig?.summaryMaxCharacters || 12000;
+    const maxLength = runtimeConfig?.summaryMaxCharacters || 2000;
     const prompt = this.buildPrompt({
       title: document?.title,
       content: this.sanitizeText(

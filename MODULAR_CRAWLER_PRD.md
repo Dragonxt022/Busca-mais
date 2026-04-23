@@ -193,9 +193,11 @@ Tipos iniciais:
 
 ---
 
-## Estrategia de Migracao
+## Estrategia de Corte
 
-A migracao deve ser incremental para manter o sistema funcionando.
+Como o projeto ainda esta em desenvolvimento e os dados atuais sao descartaveis, a estrategia oficial passa a ser corte limpo.
+
+Nao devemos manter `sources/pages`, `catalog_sources/catalog_documents` ou workers antigos como caminhos operacionais. Eles podem existir temporariamente no repositorio apenas como referencia tecnica durante a substituicao, mas a aplicacao deve expor e usar somente o motor unificado.
 
 ### Fase 1 - Plano e Contratos
 
@@ -204,30 +206,29 @@ A migracao deve ser incremental para manter o sistema funcionando.
 - Definir contrato dos adaptadores.
 - Definir schema unico de indexacao no Typesense.
 
-### Fase 2 - Modelo Unificado em Paralelo
+### Fase 2 - Modelo Unificado
 
-- Criar novas entidades para fonte buscavel e item de conteudo.
-- Manter tabelas antigas funcionando.
-- Criar mapeadores de `pages` e `catalog_documents` para o novo formato.
-- Nao remover fluxos antigos ainda.
+- Criar `searchable_sources`, `content_items` e `pipeline_runs`.
+- Usar somente essas entidades para novas coletas.
+- Resetar banco de desenvolvimento quando necessario.
+- Nao depender de mapeadores de legado.
 
 ### Fase 3 - Indexacao Unificada
 
 - Fazer o indexador consumir o modelo unificado.
 - Gerar o mesmo formato de documento para paginas, noticias, PDFs e documentos oficiais.
-- Reduzir tratamentos especiais baseados em `record_type`.
+- Usar `item_kind` como metadado, nao como pipeline separado.
 
 ### Fase 4 - Pipeline Modular
 
 - Implementar classificador base.
 - Implementar adaptadores iniciais.
-- Migrar crawlers existentes para adaptadores.
-- Absorver o fluxo de catalogo dentro do pipeline unico.
+- Implementar coletas novas somente por adaptadores.
+- Absorver transparencia, paginas institucionais e arquivos dentro do pipeline unico.
 
 ### Fase 5 - Remocao do Legado
 
-- Remover services, rotas e telas duplicadas.
-- Migrar dados restantes.
+- Remover services, rotas, telas, workers e migrations antigas quando nao forem mais referencia.
 - Eliminar a separacao operacional entre fontes de paginas e catalogos.
 
 ---
@@ -248,7 +249,7 @@ A migracao deve ser incremental para manter o sistema funcionando.
 - Uma unica busca retorna paginas, noticias, documentos oficiais, PDFs e anexos.
 - Novos padroes podem ser suportados criando adaptadores, sem criar um fluxo paralelo.
 - Dados de transparencia e conteudo institucional aparecem juntos quando relevantes.
-- O sistema antigo continua funcionando durante a migracao.
+- O sistema antigo nao fica exposto como caminho operacional.
 - O indexador trabalha com um schema normalizado.
 - A deduplicacao evita resultados repetidos entre pagina, detalhe e PDF.
 
@@ -257,7 +258,7 @@ A migracao deve ser incremental para manter o sistema funcionando.
 ## Proximos Passos Imediatos
 
 1. Definir o nome final das novas entidades (`sources/content_items` ou equivalente).
-2. Desenhar a migracao de `pages` e `catalog_documents` para o modelo unificado.
+2. Remover dependencias operacionais de `pages` e `catalog_documents`.
 3. Criar o contrato de adaptadores em codigo.
 4. Criar um indexador unificado que aceite o novo objeto normalizado.
 5. Migrar primeiro o fluxo de catalogo de transparencia para provar o modelo.
